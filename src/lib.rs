@@ -109,11 +109,16 @@ mod plat {
         Ok(path)
     }
 
-    pub fn has_tofino() -> bool {
+    pub fn has_driver() -> bool {
         match get_tofino_nodes() {
-            Ok(nodes) if !nodes.is_empty() => {
-                nodes[0].driver.is_some() && nodes[0].instance.is_some()
-            }
+            Ok(nodes) if !nodes.is_empty() => nodes[0].driver.is_some(),
+            _ => false,
+        }
+    }
+
+    pub fn has_asic() -> bool {
+        match get_tofino_nodes() {
+            Ok(nodes) if !nodes.is_empty() => nodes[0].instance.is_some(),
             _ => false,
         }
     }
@@ -129,7 +134,11 @@ mod plat {
         bail!("tofino asic not supported on this platform")
     }
 
-    pub fn has_tofino() -> bool {
+    pub fn has_driver() -> bool {
+        false
+    }
+
+    pub fn has_asic() -> bool {
         false
     }
 }
@@ -138,6 +147,10 @@ pub fn device_path() -> Result<String, Error> {
     plat::device_path()
 }
 
-pub fn has_tofino() -> bool {
-    plat::has_tofino()
+pub fn has_driver() -> bool {
+    plat::has_driver()
+}
+
+pub fn has_asic() -> bool {
+    plat::has_asic()
 }
