@@ -6,20 +6,34 @@
 
 use anyhow::{Error, Result};
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct TofinoNode {
+    pub name: String,
+    pub driver: Option<String>,
+    pub instance: Option<i32>,
+    pub devfs_path: String,
+}
+
+impl TofinoNode {
+    pub fn device_path(&self) -> Result<String, Error> {
+        plat::device_path(self)
+    }
+
+    pub fn has_driver(&self) -> bool {
+        self.driver.is_some()
+    }
+
+    pub fn has_asic(&self) -> bool {
+        self.instance.is_some()
+    }
+}
+
 #[cfg(target_os = "illumos")]
 mod plat {
     use std::path::PathBuf;
 
     use anyhow::{anyhow, bail, Context, Error, Result};
     use illumos_devinfo::DevInfo;
-
-    #[derive(Clone, Debug, PartialEq)]
-    pub struct TofinoNode {
-        pub name: String,
-        pub driver: Option<String>,
-        pub instance: Option<i32>,
-        pub devfs_path: String,
-    }
 
     const TOFINO_SUBSYSTEM_VID: i32 = 0x1d1c;
     const TOFINO_SUBSYSTEM_ID: [i32; 5] = [
@@ -56,10 +70,15 @@ mod plat {
     // TODO-completeness: We could return a vector containing all the asics.  Since
     // we know that our current platform can have no more than one, we stop scanning
     // as soon as we find that one.
-    fn get_tofino_nodes() -> Result<Vec<TofinoNode>> {
+    pub fn get_tofino_nodes() -> Result<Vec<crate::TofinoNode>> {
         let mut device_info =
             DevInfo::new_force_load().with_context(|| "loading devinfo map")?;
+        get_tofino_nodes_from(&mut device_info)
+    }
 
+    pub fn get_tofino_nodes_from(
+        device_info: &mut DevInfo,
+    ) -> Result<Vec<crate::TofinoNode>> {
         let mut node_walker = device_info.walk_node();
         while let Some(node) = node_walker
             .next()
@@ -67,7 +86,7 @@ mod plat {
             .map_err(|e| anyhow!("unable to walk device tree: {:?}", e))?
         {
             if is_tofino_node_name(&node.node_name()) {
-                return Ok(vec![TofinoNode {
+                return Ok(vec![crate::TofinoNode {
                     name: node.node_name(),
                     driver: node.driver_name(),
                     instance: node.instance(),
@@ -89,15 +108,8 @@ mod plat {
 
     // Get the instance number of the tofino asic and use it to construct a /dev/ path.  As a sanity
     // check, verify that it's a char device.
-    pub fn device_path() -> Result<String, Error> {
-        let tf = match get_tofino_nodes() {
-            Err(e) => bail!("getting tofino device node: {e:?}"),
-            Ok(mut nodes) => {
-                nodes.pop().ok_or_else(|| anyhow!("no tofino found"))?
-            }
-        };
-
-        let path = match tf.instance {
+    pub fn device_path(node: &crate::TofinoNode) -> Result<String, Error> {
+        let path = match node.instance {
             Some(instance) => format!("/dev/tofino/{instance}"),
             None => bail!("no tofino present"),
         };
@@ -108,20 +120,6 @@ mod plat {
 
         Ok(path)
     }
-
-    pub fn has_driver() -> bool {
-        match get_tofino_nodes() {
-            Ok(nodes) if !nodes.is_empty() => nodes[0].driver.is_some(),
-            _ => false,
-        }
-    }
-
-    pub fn has_asic() -> bool {
-        match get_tofino_nodes() {
-            Ok(nodes) if !nodes.is_empty() => nodes[0].instance.is_some(),
-            _ => false,
-        }
-    }
 }
 
 #[cfg(not(target_os = "illumos"))]
@@ -130,27 +128,24 @@ mod plat {
     use anyhow::Error;
     use anyhow::Result;
 
-    pub fn device_path() -> Result<String, Error> {
+    pub fn get_tofino_nodes() -> Result<Vec<crate::TofinoNode>> {
         bail!("tofino asic not supported on this platform")
     }
 
-    pub fn has_driver() -> bool {
-        false
-    }
-
-    pub fn has_asic() -> bool {
-        false
+    pub fn device_path(_node: &crate::TofinoNode) -> Result<String, Error> {
+        bail!("tofino asic not supported on this platform")
     }
 }
 
-pub fn device_path() -> Result<String, Error> {
-    plat::device_path()
+#[cfg(target_os = "illumos")]
+pub fn get_tofino_from_devinfo(
+    devinfo: &mut illumos_devinfo::DevInfo,
+) -> Result<Option<TofinoNode>> {
+    let mut all = plat::get_tofino_nodes_from(devinfo)?;
+    Ok(all.pop())
 }
 
-pub fn has_driver() -> bool {
-    plat::has_driver()
-}
-
-pub fn has_asic() -> bool {
-    plat::has_asic()
+pub fn get_tofino() -> Result<Option<TofinoNode>> {
+    let mut all = plat::get_tofino_nodes()?;
+    Ok(all.pop())
 }

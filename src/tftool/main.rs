@@ -4,7 +4,7 @@
 
 // Copyright 2023 Oxide Computer Company
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use chrono::Utc;
 use structopt::*;
 
@@ -355,7 +355,10 @@ fn reg_command(ctx: &mut Tofino, cmd: RegCommands) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let dev = tofino::device_path()?;
+    let dev = match tofino::get_tofino()? {
+        Some(node) => node.device_path()?,
+        None => bail!("no tofino asic found"),
+    };
     let mut ctx = Tofino::new(dev)?;
 
     match Commands::from_args() {
