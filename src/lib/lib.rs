@@ -6,6 +6,12 @@
 
 use anyhow::{Error, Result};
 
+pub mod common;
+pub mod fuse;
+pub mod pci;
+
+const REGISTER_SIZE: usize = 72 * 1024 * 1024;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TofinoNode {
     pub name: String,
@@ -15,16 +21,24 @@ pub struct TofinoNode {
 }
 
 impl TofinoNode {
+    /// Return the /dev path to the tofino device
     pub fn device_path(&self) -> Result<String, Error> {
         plat::device_path(self)
     }
 
+    /// Return true iff there is a driver for a tofino device active on this platform
     pub fn has_driver(&self) -> bool {
         self.driver.is_some()
     }
 
+    /// Return true iff there is a tofino asic visible in the PCI hierarchy
     pub fn has_asic(&self) -> bool {
         self.instance.is_some()
+    }
+
+    /// Open the tofino device, map the register space, and return a handle
+    pub fn open_pci(&self) -> Result<pci::Pci> {
+        pci::Pci::new(&plat::device_path(self)?, REGISTER_SIZE)
     }
 }
 

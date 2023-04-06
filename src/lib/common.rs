@@ -9,7 +9,7 @@ pub fn get_bit(word: impl std::convert::Into<u32>, bit: usize) -> u64 {
     ((w >> bit) & 0x1) as u64
 }
 
-pub fn get_bits(regs: &[u32], start: u8, end: u8) -> u64 {
+pub fn get_bits(regs: &[u32], start: u32, end: u32) -> u64 {
     let mut rval = 0u64;
 
     let start = start as isize;

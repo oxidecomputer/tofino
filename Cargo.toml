@@ -8,7 +8,7 @@ regmap = []
 
 [lib]
 name = "tofino"
-path = "src/lib.rs"
+path = "src/lib/lib.rs"
 
 [[bin]]
 name = "tftool"

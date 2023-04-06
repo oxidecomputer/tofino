@@ -4,9 +4,10 @@
 
 // Copyright 2023 Oxide Computer Company
 
-use std::ffi::{CStr, CString};
-
+/// This provides a small number of utility routines for accessing the
+/// ASIC's memory mapped PCI space.
 use anyhow::{anyhow, Result};
+use std::ffi::{CStr, CString};
 
 extern "C" {
     pub fn pci_map(
@@ -16,12 +17,14 @@ extern "C" {
     pub fn pci_err_msg() -> *const ::std::os::raw::c_char;
 }
 
+/// A handle representing a mapped ASIC device
 pub struct Pci {
     ptr: *mut ::core::ffi::c_void,
     len: usize,
 }
 
 impl Pci {
+    /// Open the ASIC and map the BAR containing the config/status registers.
     pub fn new(path: &str, len: usize) -> Result<Self> {
         let ptr = unsafe {
             let path = CString::new(path).unwrap();
@@ -50,11 +53,13 @@ impl Pci {
         }
     }
 
+    /// Read a 4-byte word from the given offset
     pub fn read4(&self, offset: u32) -> Result<u32> {
         let ptr = self.get_word_ptr(offset)?;
         unsafe { Ok(std::ptr::read(ptr)) }
     }
 
+    /// Write a 4-byte word to the given offset
     pub fn write4(&self, offset: u32, val: u32) -> Result<()> {
         let ptr = self.get_word_ptr(offset)?;
         unsafe {

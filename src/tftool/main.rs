@@ -8,11 +8,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use chrono::Utc;
 use structopt::*;
 
-mod common;
 mod dr;
 mod fuse;
 mod mac;
-mod pci;
 
 const REGISTER_SIZE: usize = 72 * 1024 * 1024;
 
@@ -108,13 +106,13 @@ pub enum RegCommands {
 
 pub struct Tofino {
     map: tofino_regs::RegMap,
-    pci: pci::Pci,
+    pci: tofino::pci::Pci,
 }
 
 impl Tofino {
     pub fn new(dev_path: String) -> Result<Self> {
         let map = tofino_regs::RegMap::new()?;
-        let pci = pci::Pci::new(&dev_path, REGISTER_SIZE)?;
+        let pci = tofino::pci::Pci::new(&dev_path, REGISTER_SIZE)?;
         Ok(Tofino { map, pci })
     }
 

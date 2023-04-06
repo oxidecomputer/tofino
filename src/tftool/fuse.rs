@@ -4,80 +4,55 @@
 
 // Copyright 2023 Oxide Computer Company
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
-use crate::common::get_bits;
 use crate::Tofino;
+use tofino::fuse;
 
-fn get_byte(full: u64, start: u8, end: u8) -> u8 {
-    let mask = (1u64 << (end - start)) - 1;
-    ((full >> start) & mask) as u8
-}
-
-fn chip_id_to_wafer(chip_id: u64) -> String {
-    let chip_id = chip_id.reverse_bits();
-    let fab = get_byte(chip_id, 57, 64) as char;
-    let lot = get_byte(chip_id, 50, 57) as char;
-    let lotnum0 = get_byte(chip_id, 43, 50) as char;
-    let lotnum1 = get_byte(chip_id, 36, 43) as char;
-    let lotnum2 = get_byte(chip_id, 29, 36) as char;
-    let lotnum3 = get_byte(chip_id, 22, 29) as char;
-    let wafer = get_byte(chip_id, 17, 22);
-    let x = get_byte(chip_id, 9, 17);
-    let y = get_byte(chip_id, 1, 9);
-
-    format!(
-        "{}{}{}{}{}{}-W{}-X{}-Y{}",
-        fab, lot, lotnum0, lotnum1, lotnum2, lotnum3, wafer, x, y,
-    )
-}
-
-fn print_field(r: &[u32], name: &str, low: u8, high: u8) {
-    println!("{:24}: 0x{:x}", name, get_bits(r, low, high));
-}
-
-#[cfg(feature = "tofino_regs")]
-fn read_fuse(ctx: &mut Tofino) -> Result<Vec<u32>> {
-    const FUSE_NAME: &str = "device_select.misc_regs.func_fuse";
-    crate::read_register(ctx, FUSE_NAME, 8)
-}
-
-#[cfg(not(feature = "tofino_regs"))]
-fn read_fuse(ctx: &mut Tofino) -> Result<Vec<u32>> {
-    crate::read_offset(ctx, 0x80180, 8)
+macro_rules! print_field {
+    ($struct:ident, $field:ident) => {
+        println!("{:24}: 0x{:x}", stringify!($field), $struct.$field)
+    };
 }
 
 pub fn dump_fuse(ctx: &mut Tofino) -> Result<()> {
-    let r = read_fuse(ctx)?;
-    if r.len() != 8 {
-        return Err(anyhow!("fuse should be 8 words.  Found {}", r.len()));
-    }
+    let fuse = fuse::Fuse::read(&ctx.pci)?;
 
-    print_field(&r, "resubmit_disable", 1, 1);
-    print_field(&r, "mau_tcam_reduction", 2, 2);
-    print_field(&r, "mau_sram_reduction", 3, 3);
-    print_field(&r, "packet_generator_disable", 4, 4);
-    print_field(&r, "pipe_disable", 5, 8);
-    print_field(&r, "mau_stage_disable", 9, 20);
-    print_field(&r, "port_disable_map_lo", 21, 84);
-    print_field(&r, "port_disable_map_hi", 85, 85);
-    print_field(&r, "tm_memory_disable", 86, 121);
-    print_field(&r, "port_speed_reduction", 126, 127);
-    print_field(&r, "cpu_port_speed_reduction", 128, 129);
-    print_field(&r, "pcie_lane_reduction", 130, 131);
-    print_field(&r, "baresync_disable", 132, 132);
-    print_field(&r, "frequency_reduction", 133, 134);
-    print_field(&r, "frequency_check_disable", 135, 135);
-    print_field(&r, "versioning", 139, 140);
-    print_field(&r, "chip_part_number", 151, 155);
-    print_field(&r, "part_revision_number", 156, 163);
-    print_field(&r, "package_id", 164, 165);
-    print_field(&r, "silent_spin", 166, 167);
-    print_field(&r, "pmro_and_skew", 231, 242);
-    print_field(&r, "voltage_scaling", 243, 245);
-    print_field(&r, "chip_id", 168, 230);
+    print_field!(fuse, device_id);
+    print_field!(fuse, version);
+    print_field!(fuse, freq_dis);
+    print_field!(fuse, freq_bps);
+    print_field!(fuse, freq_pps);
+    print_field!(fuse, pcie_dis);
+    print_field!(fuse, cpu_speed_dis);
+    print_field!(fuse, speed_dis);
+    print_field!(fuse, port_dis);
+    print_field!(fuse, pipe_dis);
+    print_field!(fuse, pipe0_mau_dis);
+    print_field!(fuse, pipe1_mau_dis);
+    print_field!(fuse, pipe2_mau_dis);
+    print_field!(fuse, pipe3_mau_dis);
+    print_field!(fuse, tm_mem_dis);
+    print_field!(fuse, bsync_dis);
+    print_field!(fuse, pgen_dis);
+    print_field!(fuse, resub_dis);
+    print_field!(fuse, voltage_scaling);
+    print_field!(fuse, rsvd_22);
+    print_field!(fuse, part_num);
+    print_field!(fuse, rev_num);
+    print_field!(fuse, pkg_id);
+    print_field!(fuse, silent_spin);
+    print_field!(fuse, chip_id);
+    print_field!(fuse, pmro_and_skew);
+    print_field!(fuse, wf_core_repair);
+    print_field!(fuse, core_repair);
+    print_field!(fuse, tile_repair);
+    print_field!(fuse, freq_bps_2);
+    print_field!(fuse, freq_pps_2);
+    print_field!(fuse, die_rotation);
+    print_field!(fuse, soft_pipe_dis);
 
-    let chip_id = get_bits(&r, 168, 230);
-    println!("{:24}: {}", "wafer id", chip_id_to_wafer(chip_id));
+    let chip_id: fuse::ChipId = fuse.chip_id.into();
+    println!("{:24}: {}", "wafer id", chip_id);
     Ok(())
 }
