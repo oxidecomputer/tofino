@@ -125,7 +125,7 @@ impl From<u64> for ChipId {
     fn from(mut raw: u64) -> Self {
         fn bite(a: &mut u64, bits: usize) -> u8 {
             let rval = (*a & ((1u64 << bits) - 1)) as u8;
-            *a = *a >> bits;
+            *a >>= bits;
             rval
         }
 
