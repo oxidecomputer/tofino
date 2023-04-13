@@ -10,7 +10,7 @@ pub mod common;
 pub mod fuse;
 pub mod pci;
 
-const REGISTER_SIZE: usize = 72 * 1024 * 1024;
+pub const REGISTER_SIZE: usize = 72 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TofinoNode {
