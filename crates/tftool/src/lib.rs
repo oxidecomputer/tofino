@@ -6,7 +6,7 @@
 
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::Utc;
-use structopt::*;
+use clap::{Parser, Subcommand};
 
 mod dr;
 mod fuse;
@@ -42,64 +42,83 @@ mod tofino_regs {
     }
 }
 
-#[derive(Debug, StructOpt)]
-pub enum Commands {
-    #[structopt(about = "dump the content of the fuse registers")]
+#[derive(Debug, Parser)]
+pub enum TftoolCommand {
+    /// Dump the content of the fuse registers.
     Fuse,
-    #[structopt(about = "dump info about descriptor rings")]
+
+    #[clap(subcommand)]
     Dr(DrCommands),
-    #[structopt(about = "operate on Tofino registers")]
+
+    #[clap(subcommand)]
     Reg(RegCommands),
-    #[structopt(about = "display mac register state")]
+
+    #[clap(subcommand)]
     Mac(MacCommands),
 }
 
-#[derive(Debug, StructOpt)]
+/// Dump info about descriptor rings.
+#[derive(Debug, Subcommand)]
 pub enum DrCommands {
-    #[structopt(about = "list the descriptor rings and their offsets")]
+    /// List the descriptor rings and their offsets.
     List,
-    #[structopt(
-        about = "show the register values for a single descriptor ring"
-    )]
-    Show { dr: String },
-    #[structopt(about = "dump summary information for all descriptor rings")]
+
+    /// Show the register values for a single descriptor ring.
+    Show {
+        /// The descriptor ring.
+        dr: String,
+    },
+
+    /// Dump summary information for all descriptor rings.
     Dump,
 }
 
-#[derive(Debug, StructOpt)]
+/// Display MAC register state.
+#[derive(Debug, Subcommand)]
 pub enum MacCommands {
-    #[structopt(
-        about = "show the per-channel state for one or all macs",
-        help = "valid macs are 'aux' or 1-32"
-    )]
-    Status { mac: Option<String> },
+    /// Show the per-channel state for one or all MACs.
+    Status {
+        /// MACs to display: `aux`, `cpu`, or a number between 1-32.
+        mac: Option<String>,
+    },
 }
 
-#[derive(Debug, StructOpt)]
+/// Operate on Tofino registers.
+#[derive(Debug, Subcommand)]
 pub enum RegCommands {
-    #[structopt(about = "read the contents of a register")]
-    Read { reg: String, num: Option<u32> },
-    #[structopt(about = "modify the contents of a register")]
-    Write { reg: String, val: String },
-    #[structopt(
-        about = "list the children of the node in the given register path"
-    )]
+    /// Read the contents of a register.
+    Read {
+        /// The register to read.
+        reg: String,
+        num: Option<u32>,
+    },
+
+    /// Modify the contents of a register.
+    Write {
+        /// The register to write to.
+        reg: String,
+        val: String,
+    },
+
+    /// List the children of the node in the given register path.
     List {
-        #[structopt(default_value = ".")]
+        /// The register to operate on.
+        #[clap(default_value = ".")]
         reg: String,
     },
-    #[structopt(about = "search for register(s) by name")]
+
+    /// Search for register(s) by name.
     Search {
-        #[structopt(default_value = "10", short, long)]
-        max: u32,
+        /// The string to search for.
         reg: String,
+        #[clap(default_value = "10", short, long)]
+        max: u32,
     },
-    #[structopt(
-        about = "measure the time to read/write registers on each bus",
-        help = "perf [ -n iterations ]"
-    )]
+
+    /// Measure the time to read/write registers on each bus.
     Perf {
-        #[structopt(short, default_value = "10000")]
+        /// The number of iterations to perform.
+        #[clap(short, default_value = "10000")]
         n: usize,
     },
 }
@@ -305,23 +324,31 @@ fn perf(ctx: &mut Tofino, iter: usize) -> Result<()> {
 
     for (bus, addr) in &regs {
         pause();
-        let start = Utc::now().timestamp_nanos();
+        let start = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         for _ in 0..iter {
             let x = ctx.pci.read4(*addr)?;
             if x == 0xffffffff {
                 println!("bad read");
             }
         }
-        let end = Utc::now().timestamp_nanos();
+        let end = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         let read_nsec = end - start;
 
         pause();
         ctx.pci.write4(*addr, 0)?;
-        let start = Utc::now().timestamp_nanos();
+        let start = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         for _ in 0..iter {
             ctx.pci.write4(*addr, 0)?;
         }
-        let end = Utc::now().timestamp_nanos();
+        let end = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         let write_nsec = end - start;
         println!(
             "{:>5}  {:8x} {:>12} {:>8}    {:>12}  {:>8}",
@@ -352,17 +379,20 @@ fn reg_command(ctx: &mut Tofino, cmd: RegCommands) -> Result<()> {
     }
 }
 
-fn main() -> Result<()> {
+pub fn exec() -> Result<()> {
+    // Parse this first to display help if requested.
+    let command = TftoolCommand::parse();
+
     let dev = match tofino::get_tofino()? {
         Some(node) => node.device_path()?,
         None => bail!("no tofino asic found"),
     };
     let mut ctx = Tofino::new(dev)?;
 
-    match Commands::from_args() {
-        Commands::Fuse => fuse::dump_fuse(&mut ctx),
-        Commands::Reg(reg_cmd) => reg_command(&mut ctx, reg_cmd),
-        Commands::Mac(mac_cmd) => mac_command(&mut ctx, mac_cmd),
-        Commands::Dr(dr_cmd) => dr::dr_command(&mut ctx, dr_cmd),
+    match command {
+        TftoolCommand::Fuse => fuse::dump_fuse(&mut ctx),
+        TftoolCommand::Reg(reg_cmd) => reg_command(&mut ctx, reg_cmd),
+        TftoolCommand::Mac(mac_cmd) => mac_command(&mut ctx, mac_cmd),
+        TftoolCommand::Dr(dr_cmd) => dr::dr_command(&mut ctx, dr_cmd),
     }
 }

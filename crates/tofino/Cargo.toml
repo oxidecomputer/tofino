@@ -1,0 +1,13 @@
+[package]
+name = "tofino"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+
+[target.'cfg(target_os = "illumos")'.dependencies]
+illumos-devinfo.workspace = true
+
+[build-dependencies]
+cc.workspace = true
