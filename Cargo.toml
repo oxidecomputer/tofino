@@ -1,25 +1,11 @@
-[package]
-name = "tofino"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = ["crates/*"]
 
-[features]
-regmap = []
-
-[lib]
-name = "tofino"
-path = "src/lib/lib.rs"
-
-[[bin]]
-name = "tftool"
-path = "src/tftool/main.rs"
-
-[dependencies]
+[workspace.dependencies]
 anyhow = "1.0.52"
-structopt = { version = "0.3" }
-chrono = "0.4"
-[target.'cfg(target_os = "illumos")'.dependencies]
-illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", branch = "main" }
-
-[build-dependencies]
 cc = "1.0"
+chrono = "0.4"
+illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", branch = "main" }
+structopt = "0.3.24"
+tofino = { path = "crates/tofino" }
