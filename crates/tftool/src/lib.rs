@@ -305,23 +305,31 @@ fn perf(ctx: &mut Tofino, iter: usize) -> Result<()> {
 
     for (bus, addr) in &regs {
         pause();
-        let start = Utc::now().timestamp_nanos();
+        let start = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         for _ in 0..iter {
             let x = ctx.pci.read4(*addr)?;
             if x == 0xffffffff {
                 println!("bad read");
             }
         }
-        let end = Utc::now().timestamp_nanos();
+        let end = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         let read_nsec = end - start;
 
         pause();
         ctx.pci.write4(*addr, 0)?;
-        let start = Utc::now().timestamp_nanos();
+        let start = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         for _ in 0..iter {
             ctx.pci.write4(*addr, 0)?;
         }
-        let end = Utc::now().timestamp_nanos();
+        let end = Utc::now()
+            .timestamp_nanos_opt()
+            .expect("only a problem after the year 2262");
         let write_nsec = end - start;
         println!(
             "{:>5}  {:8x} {:>12} {:>8}    {:>12}  {:>8}",
@@ -352,7 +360,7 @@ fn reg_command(ctx: &mut Tofino, cmd: RegCommands) -> Result<()> {
     }
 }
 
-fn main() -> Result<()> {
+pub fn exec() -> Result<()> {
     let dev = match tofino::get_tofino()? {
         Some(node) => node.device_path()?,
         None => bail!("no tofino asic found"),
