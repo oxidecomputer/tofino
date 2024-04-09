@@ -6,6 +6,6 @@ members = ["crates/*"]
 anyhow = "1.0.52"
 cc = "1.0"
 chrono = "0.4"
+clap = { version = "4.5.4", features = ["derive"] }
 illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", branch = "main" }
-structopt = "0.3.24"
 tofino = { path = "crates/tofino" }

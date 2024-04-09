@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
-structopt.workspace = true
+clap.workspace = true
 tofino.workspace = true
