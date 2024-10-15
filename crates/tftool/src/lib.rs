@@ -14,7 +14,6 @@ mod mac;
 
 const REGISTER_SIZE: usize = 72 * 1024 * 1024;
 
-#[cfg(not(feature = "tofino_regs"))]
 mod tofino_regs {
     use anyhow::{anyhow, Result};
 
