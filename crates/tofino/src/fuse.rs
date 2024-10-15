@@ -108,17 +108,17 @@ impl Fuse {
 
 /// Parsed version of the chip_id field in the Fuse struct
 pub struct ChipId {
-    fab: char,
-    lot: char,
-    lotnum0: char,
-    lotnum1: char,
-    lotnum2: char,
-    lotnum3: char,
-    wafer: u8,
-    xsign: u8,
-    x: u8,
-    ysign: u8,
-    y: u8,
+    pub fab: char,
+    pub lot: char,
+    pub lotnum0: char,
+    pub lotnum1: char,
+    pub lotnum2: char,
+    pub lotnum3: char,
+    pub wafer: u8,
+    pub xsign: u8,
+    pub x: u8,
+    pub ysign: u8,
+    pub y: u8,
 }
 
 impl From<u64> for ChipId {
