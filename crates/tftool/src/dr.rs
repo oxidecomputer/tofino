@@ -120,7 +120,7 @@ fn get_drs() -> BTreeMap<String, u32> {
 fn list() {
     println!("{:21} {:6}", "NAME", "OFFSET");
     for (name, offset) in get_drs() {
-        println!("{:21} 0x{:>06x}", name, offset);
+        println!("{name:21} 0x{offset:>06x}");
     }
 }
 
@@ -171,9 +171,9 @@ fn dump(ctx: &mut Tofino) -> Result<()> {
     );
     for (name, offset) in get_drs() {
         let dr = read_dr(ctx, offset)?;
-        let base = (dr.base_addr_high as u64) << 32 | dr.base_addr_low as u64;
+        let base = ((dr.base_addr_high as u64) << 32) | dr.base_addr_low as u64;
         let limit =
-            (dr.limit_addr_high as u64) << 32 | dr.limit_addr_low as u64;
+            ((dr.limit_addr_high as u64) << 32) | dr.limit_addr_low as u64;
         println!(
             "{:21} {:08x} {:016x} {:016x} {:>6x} {:>6x} {:08x}",
             name, dr.ctrl, base, limit, dr.head_ptr, dr.tail_ptr, dr.status
