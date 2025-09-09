@@ -383,7 +383,12 @@ pub fn exec() -> Result<()> {
     let command = TftoolCommand::parse();
 
     let dev = match tofino::get_tofino()? {
-        Some(node) => node.device_path()?,
+        Some(node) => {
+            if !node.available {
+                bail!("tofino not available");
+            }
+            node.device_path()?
+        }
         None => bail!("no tofino asic found"),
     };
     let mut ctx = Tofino::new(dev)?;

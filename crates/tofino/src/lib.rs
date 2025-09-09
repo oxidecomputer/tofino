@@ -17,6 +17,7 @@ pub struct TofinoNode {
     pub name: String,
     pub driver: Option<String>,
     pub instance: Option<i32>,
+    pub available: bool,
     pub devfs_path: String,
 }
 
@@ -27,8 +28,8 @@ impl TofinoNode {
     }
 
     /// Return true iff there is a driver for a tofino device active on this platform
-    pub fn has_driver(&self) -> bool {
-        self.driver.is_some()
+    pub fn is_available(&self) -> bool {
+        self.available
     }
 
     /// Return true iff there is a tofino asic visible in the PCI hierarchy
@@ -46,6 +47,7 @@ impl TofinoNode {
 mod plat {
     use std::path::PathBuf;
 
+    use crate::pci;
     use anyhow::{anyhow, bail, Context, Error, Result};
     use illumos_devinfo::DevInfo;
 
@@ -100,10 +102,18 @@ mod plat {
             .map_err(|e| anyhow!("unable to walk device tree: {:?}", e))?
         {
             if is_tofino_node_name(&node.node_name()) {
+                let available = match node.instance() {
+                    Some(i) => {
+                        let path = format!("/dev/tofino/{i}");
+                        is_char_device(&path) && pci::Pci::check_presence(&path)
+                    }
+                    None => false,
+                };
                 return Ok(vec![crate::TofinoNode {
                     name: node.node_name(),
                     driver: node.driver_name(),
                     instance: node.instance(),
+                    available,
                     devfs_path: node.devfs_path()?,
                 }]);
             }
