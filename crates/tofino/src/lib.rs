@@ -75,7 +75,7 @@ mod plat {
                 };
 
                 return vid == TOFINO_SUBSYSTEM_VID
-                    && TOFINO_SUBSYSTEM_ID.iter().any(|&x| x == id);
+                    && TOFINO_SUBSYSTEM_ID.contains(&id);
             }
         }
 
