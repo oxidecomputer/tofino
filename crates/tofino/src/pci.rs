@@ -14,6 +14,9 @@ extern "C" {
         path: *const ::std::os::raw::c_char,
         size: usize,
     ) -> *mut ::core::ffi::c_void;
+    pub fn pci_check_presence(
+        path: *const ::std::os::raw::c_char,
+    ) -> ::core::ffi::c_int;
     pub fn pci_err_msg() -> *const ::std::os::raw::c_char;
 }
 
@@ -38,6 +41,15 @@ impl Pci {
             Err(anyhow!("failed to map {}: {}", path, msg))
         } else {
             Ok(Pci { ptr, len })
+        }
+    }
+
+    /// Attempt to open the device file, just to determine whether the
+    /// underlying ASIC is still available.
+    pub fn check_presence(path: &str) -> bool {
+        unsafe {
+            let path = CString::new(path).unwrap();
+            pci_check_presence(path.as_ptr()) >= 0
         }
     }
 

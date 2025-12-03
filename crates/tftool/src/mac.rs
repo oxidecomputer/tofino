@@ -153,9 +153,7 @@ fn show_aux(ctx: &mut Tofino) -> Result<()> {
 
 pub fn status(ctx: &mut Tofino, mac: Option<String>) -> Result<()> {
     if let Some(mac) = mac {
-        if mac.to_ascii_lowercase() == "aux"
-            || mac.to_ascii_lowercase() == "cpu"
-        {
+        if mac.eq_ignore_ascii_case("aux") || mac.eq_ignore_ascii_case("cpu") {
             show_aux(ctx)
         } else if let Ok(mac) = mac.parse::<u32>() {
             show_eth400g(ctx, mac)
