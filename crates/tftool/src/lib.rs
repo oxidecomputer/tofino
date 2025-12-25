@@ -168,12 +168,12 @@ fn search_in(
         if path.contains(tgt) {
             *cnt += 1;
             if *cnt <= max {
-                println!("{}", path);
+                println!("{path}");
             }
         }
     } else {
         for name in &children {
-            let next = format!("{}.{}", path, name);
+            let next = format!("{path}.{name}");
             search_in(ctx, cnt, max, &next, tgt)?;
         }
     }
@@ -188,7 +188,7 @@ pub fn search(ctx: &mut Tofino, max: u32, tgt: String) -> Result<()> {
 
     if cnt > max {
         println!("...");
-        println!("{} matches found", cnt);
+        println!("{cnt} matches found");
     }
 
     match cnt {
@@ -201,7 +201,7 @@ fn list(ctx: &Tofino, path: String) -> Result<()> {
     let node = ctx.get_node(&path)?;
     for c in ctx.get_children(node)? {
         if !c.starts_with('_') {
-            println!("{}", c);
+            println!("{c}");
         }
     }
     Ok(())
@@ -254,7 +254,7 @@ fn cmd_read(ctx: &mut Tofino, reg: &str, cnt: Option<u32>) -> Result<()> {
         println!(
             "{}{:x}",
             match cnt > 1 {
-                true => format!("{:x}: ", offset),
+                true => format!("{offset:x}: "),
                 false => String::new(),
             },
             val

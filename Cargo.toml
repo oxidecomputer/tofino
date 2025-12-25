@@ -4,7 +4,7 @@ members = ["crates/*"]
 
 [workspace.dependencies]
 anyhow = "1.0.52"
-cc = "1.0"
+cc = "1.2.30"
 chrono = "0.4"
 clap = { version = "4.5.4", features = ["derive"] }
 illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", branch = "main" }

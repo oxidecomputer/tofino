@@ -46,9 +46,9 @@ fn eth100g_status(ctx: &mut Tofino) -> Result<Eth100GStatus> {
 }
 
 fn eth400g_status(ctx: &mut Tofino, mac: u32) -> Result<Eth400GStatus> {
-    let base = format!("eth400g_p{}.eth400g_mac", mac);
-    let path0 = format!("{}.eth_status0", base);
-    let path1 = format!("{}.eth_status1", base);
+    let base = format!("eth400g_p{mac}.eth400g_mac");
+    let path0 = format!("{base}.eth_status0");
+    let path1 = format!("{base}.eth_status1");
     let stat0 = read_register(ctx, &path0, 1)?;
     let stat1 = read_register(ctx, &path1, 1)?;
 
