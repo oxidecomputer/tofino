@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = ["crates/*", "xml2rsf"]
 
 [workspace.dependencies]
-anyhow = "1.0.52"
+anyhow = "1.0"
 cc = "1.0"
 chrono = "0.4"
 clap = { version = "4.5.4", features = ["derive"] }
