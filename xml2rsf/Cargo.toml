@@ -1,0 +1,9 @@
+[package]
+name = "xml2rsf"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+regex = "1.12"
+convert_case = "0.11"
