@@ -7,7 +7,7 @@
 use std::convert::From;
 use std::fmt;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::common::get_bits;
 use crate::pci::Pci;

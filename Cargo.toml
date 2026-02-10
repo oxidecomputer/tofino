@@ -1,11 +1,23 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "xml2rsf"]
+members = [
+    "regs",
+    "tofino",
+    "tftool",
+    "xml2rsf"
+]
 
 [workspace.dependencies]
 anyhow = "1.0"
 cc = "1.0"
 chrono = "0.4"
 clap = { version = "4.5.4", features = ["derive"] }
+convert_case = "0.11"
 illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", branch = "main" }
-tofino = { path = "crates/tofino" }
+paste = "1.0"
+quote = "1.0.40"
+regex = "1.12"
+rsf = { git = "https://github.com/oxidecomputer/rsf" }
+rust_rpi = { git = "https://github.com/oxidecomputer/rsf" }
+tofino = { path = "tofino" }
+regs = { path = "regs" }

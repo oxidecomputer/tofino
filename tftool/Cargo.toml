@@ -1,10 +1,13 @@
 [package]
 name = "tftool"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
 clap.workspace = true
+paste.workspace = true
+regs.workspace = true
+rust_rpi.workspace = true
 tofino.workspace = true

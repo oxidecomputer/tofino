@@ -1,53 +1,49 @@
 use std::fs::File;
-use std::io::{prelude::*, BufReader};
+use std::io::{BufReader, prelude::*};
 
+use anyhow::Result;
 use anyhow::anyhow;
 use anyhow::bail;
-use anyhow::Result;
+use convert_case::{Case, Casing};
 use regex::Regex;
 
 pub struct RegMap {
     pub address_maps: Vec<AddressMap>,
     pub registers: Vec<Register>,
-    pub groups: Vec<Group>,
-}
-
-#[derive(Debug)]
-pub enum Node {
-    AddressMap(AddressMap),
-    AddressMapEntry(AddressMapEntry),
-    Register,
-    Group(Group),
-    Other(String),
-    Raw(RawNode),
 }
 
 #[derive(Debug)]
 pub struct AddressMapEntry {
     pub low: u32,
     pub high: u32,
+    #[allow(unused)]
     pub name: Option<String>,
     pub ref_name: Option<String>,
 }
 
-fn hex_parse(s: &str) -> Result<u32> {
-    u32::from_str_radix(s.strip_prefix("0x").unwrap_or(s), 16)
-        .map_err(|e| anyhow!("parsing {s}: {e:?}"))
+fn num_parse(s: &str) -> Result<u32> {
+    if s.starts_with("0x") {
+        u32::from_str_radix(s.strip_prefix("0x").unwrap_or(s), 16)
+    } else {
+        #[allow(clippy::from_str_radix_10)]
+        u32::from_str_radix(s, 10)
+    }
+    .map_err(|e| anyhow!("parsing {s}: {e:?}"))
 }
 
 // Some registers put a range in the "offset" field (e.g., 0x0 - 0x800, +0x80)
 // We only want the starting offset.
 fn hex_range_parse(s: &str) -> Result<u32> {
-    let end = s.find(" ").unwrap_or_else(|| s.len());
-    hex_parse(&s[0..end])
+    let end = s.find(" ").unwrap_or(s.len());
+    num_parse(&s[0..end])
 }
 
 impl TryFrom<&RawNode> for AddressMapEntry {
     type Error = anyhow::Error;
     fn try_from(node: &RawNode) -> std::result::Result<Self, Self::Error> {
         Ok(AddressMapEntry {
-            low: hex_parse(&node.get_child_value("addressLow")?)?,
-            high: hex_parse(&node.get_child_value("addressHigh")?)?,
+            low: num_parse(&node.get_child_value("addressLow")?)?,
+            high: num_parse(&node.get_child_value("addressHigh")?)?,
             name: node.get_child_value("instanceName").ok(),
             ref_name: node.get_child_value("referenceName").ok(),
         })
@@ -56,7 +52,7 @@ impl TryFrom<&RawNode> for AddressMapEntry {
 
 #[derive(Debug)]
 pub struct AddressMap {
-    entries: Vec<AddressMapEntry>,
+    pub entries: Vec<AddressMapEntry>,
 }
 
 impl TryFrom<&RawNode> for AddressMap {
@@ -66,11 +62,24 @@ impl TryFrom<&RawNode> for AddressMap {
             RawNode::Container { children, .. } => {
                 let all = children.len();
                 let entries = children
-                    .into_iter()
-                    .map(|c| AddressMapEntry::try_from(c))
-                    .collect::<Result<Vec<AddressMapEntry>, anyhow::Error>>()?;
+                    .iter()
+                    .map(AddressMapEntry::try_from)
+                    .collect::<Result<Vec<AddressMapEntry>, anyhow::Error>>(
+                )?;
+
                 if entries.len() == all {
-                    Ok(AddressMap { entries })
+                    Ok(AddressMap {
+                        entries: entries
+                            .into_iter()
+                            .filter(|e| match &e.ref_name {
+                                Some(r) => {
+                                    !r.starts_with("jbay_reg.eth400g_")
+                                        || r.starts_with("jbay_reg.eth400g_p1.")
+                                }
+                                None => false,
+                            })
+                            .collect(),
+                    })
                 } else {
                     Err(anyhow!("addressMap contains non-entry"))
                 }
@@ -80,8 +89,8 @@ impl TryFrom<&RawNode> for AddressMap {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum AccessMode {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AccessMode {
     ReadOnly,
     WriteOnly,
     ReadWrite,
@@ -98,14 +107,19 @@ fn access_parse(s: &str) -> Result<AccessMode> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Register {
     pub ref_name: String,
+    pub id: String,
+    #[allow(unused)]
     pub title: String,
+    #[allow(unused)]
     pub access: AccessMode,
+    #[allow(unused)]
     pub offset: u32,
-    pub reset_value: u32,
-    pub reset_mask: u32,
+    pub reset_value: Option<u32>,
+    #[allow(unused)]
+    pub reset_mask: Option<u32>,
     pub bitfields: Vec<Bitfield>,
 }
 
@@ -120,7 +134,7 @@ impl TryFrom<&RawNode> for Register {
             if let Some(node) = bitfields_node {
                 node.get_child_ref()?
                     .iter()
-                    .map(|c| Bitfield::try_from(c))
+                    .map(Bitfield::try_from)
                     .collect::<Result<Vec<Bitfield>, anyhow::Error>>()?
             } else {
                 Vec::new()
@@ -129,25 +143,24 @@ impl TryFrom<&RawNode> for Register {
 
         Ok(Register {
             ref_name: node.get_child_value("referenceName")?,
+            id: node.get_child_value("identifier")?,
             title: node.get_child_value("title")?,
             offset: hex_range_parse(&node.get_child_value("offset")?)?,
-            reset_value: hex_parse(
-                &node
-                    .get_child_value("resetValue")
-                    .unwrap_or("0x0".to_string()),
-            )?,
-            reset_mask: hex_parse(
-                &node
-                    .get_child_value("resetMask")
-                    .unwrap_or("0xffffffff".to_string()),
-            )?,
+            reset_value: node
+                .get_child_value("resetValue")
+                .map(|n| num_parse(&n).unwrap())
+                .ok(),
+            reset_mask: node
+                .get_child_value("resetMask")
+                .map(|n| num_parse(&n).unwrap())
+                .ok(),
             access: access_parse(&node.get_child_value("addressedAccess")?)?,
             bitfields,
         })
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bitfield {
     pub id: String,
     pub access: AccessMode,
@@ -159,56 +172,27 @@ impl TryFrom<&RawNode> for Bitfield {
     type Error = anyhow::Error;
     fn try_from(node: &RawNode) -> std::result::Result<Self, Self::Error> {
         Ok(Bitfield {
-            id: node
-                .get_child_value("id")
-                .unwrap_or(node.get_child_value("identifier")?),
+            id: node.get_child_value("id").unwrap_or(
+                node.get_child_value("identifier")?.to_case(Case::Snake),
+            ),
             access: access_parse(&node.get_child_value("access")?)?,
-            lsb: hex_parse(&node.get_child_value("lsb")?)? as u8,
-            msb: hex_parse(&node.get_child_value("msb")?)? as u8,
+            lsb: num_parse(&node.get_child_value("lsb")?)? as u8,
+            msb: num_parse(&node.get_child_value("msb")?)? as u8,
         })
     }
 }
 
 #[derive(Debug)]
-pub struct Group {
-    pub ref_name: String,
-    pub offset: u32,
-}
-
-impl TryFrom<&RawNode> for Group {
-    type Error = anyhow::Error;
-    fn try_from(node: &RawNode) -> std::result::Result<Self, Self::Error> {
-        Ok(Group {
-            offset: hex_range_parse(&node.get_child_value("offset")?)?,
-            ref_name: node.get_child_value("referenceName")?,
-        })
-    }
-}
-
-#[derive(Debug)]
-enum RawNode {
-    Container {
-        name: String,
-        children: Vec<RawNode>,
-    },
-    Value {
-        name: String,
-        value: String,
-    },
+pub enum RawNode {
+    Container { name: String, children: Vec<RawNode> },
+    Value { name: String, value: String },
 }
 
 impl RawNode {
-    pub fn name<'a>(&self) -> &String {
+    pub fn name(&self) -> &String {
         match self {
-            RawNode::Value { name, .. } => return &name,
-            RawNode::Container { name, .. } => return &name,
-        }
-    }
-
-    pub fn is_container(&self) -> bool {
-        match self {
-            RawNode::Value { .. } => false,
-            RawNode::Container { .. } => true,
+            RawNode::Value { name, .. } => name,
+            RawNode::Container { name, .. } => name,
         }
     }
 
@@ -222,11 +206,9 @@ impl RawNode {
         match self {
             RawNode::Value { .. } => None,
             RawNode::Container { children, .. } => {
-                if let Some(c) = children.iter().find_map(|c| match c {
-                    RawNode::Container { name, .. } if name == find_name => {
-                        Some(c)
-                    }
-                    _ => None,
+                if let Some(c) = children.iter().find(|c| match c {
+                    RawNode::Container { name, .. } => name == find_name,
+                    RawNode::Value { .. } => false,
                 }) {
                     Some(c)
                 } else {
@@ -239,7 +221,7 @@ impl RawNode {
     }
 
     // Get a reference to a node's children.
-    pub fn get_child_ref<'a>(&'a self) -> Result<&'a Vec<RawNode>> {
+    pub fn get_child_ref(&self) -> Result<&Vec<RawNode>> {
         match self {
             RawNode::Value { .. } => bail!("node is not a container"),
             RawNode::Container { children, .. } => Ok(children),
@@ -320,14 +302,13 @@ where
         }
 
         let classified = self.classify_line(&line)?;
-        self.line_no = self.line_no + 1;
+        self.line_no += 1;
         let line_no = self.line_no;
 
         match classified {
-            LineType::Text(value) => Ok(Some(RawNode::Value {
-                name: String::new(),
-                value,
-            })),
+            LineType::Text(value) => {
+                Ok(Some(RawNode::Value { name: String::new(), value }))
+            }
             LineType::Full(name, value) => {
                 Ok(Some(RawNode::Value { name, value }))
             }
@@ -353,7 +334,6 @@ where
                             }));
                         }
                         Err(e) => {
-                            eprintln!("{e:?}");
                             return Err(anyhow!(
                                 "failed to parse {} at {}: {:?}",
                                 name,
@@ -365,7 +345,7 @@ where
                 }
             }
             LineType::Tail(x) => {
-                if &x != parsing {
+                if x != parsing {
                     bail!("found {} ending {} at line {}", x, parsing, line_no);
                 }
                 Ok(None)
@@ -376,7 +356,7 @@ where
     pub fn validate_header(&mut self) -> Result<()> {
         let mut line = String::new();
         self.reader.read_line(&mut line)?;
-        self.line_no = self.line_no + 1;
+        self.line_no += 1;
         if line.trim() == "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" {
             Ok(())
         } else {
@@ -392,9 +372,8 @@ fn convert(raw: RawNode) -> Result<RegMap> {
     };
 
     let mut address_maps = Vec::new();
-    let mut groups = Vec::new();
     let mut registers = Vec::new();
-    for d in definitions.into_iter() {
+    for d in definitions.iter() {
         match d.get_child_value("referenceType").unwrap().as_str() {
             "addressmap" => {
                 // Some sections tagged as "addressMap" don't actually
@@ -405,22 +384,20 @@ fn convert(raw: RawNode) -> Result<RegMap> {
                 }
             }
             "register" => {
-                registers.push(Register::try_from(d).map_err(|e| {
-                    anyhow!("failed to convert {d:#?} to a register: {e:?}",)
-                })?)
+                let r = Register::try_from(d).map_err(|e| {
+                    anyhow!("failed to convert {d:#?} to a register: {e:?}")
+                })?;
+                if !r.ref_name.starts_with("jbay_reg.eth400g_")
+                    || r.ref_name.starts_with("jbay_reg.eth400g_p1.")
+                {
+                    registers.push(r);
+                }
             }
-            "group" => groups.push(Group::try_from(d).map_err(|e| {
-                anyhow!("failed to convert {d:#?} to a group: {e:?}")
-            })?),
             _ => {}
         }
     }
 
-    Ok(RegMap {
-        address_maps,
-        registers,
-        groups,
-    })
+    Ok(RegMap { address_maps, registers })
 }
 
 pub fn parse_xml(xml: &String) -> Result<RegMap> {

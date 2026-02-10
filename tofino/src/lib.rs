@@ -48,7 +48,7 @@ mod plat {
     use std::path::PathBuf;
 
     use crate::pci;
-    use anyhow::{anyhow, bail, Context, Error, Result};
+    use anyhow::{Context, Error, Result, anyhow, bail};
     use illumos_devinfo::DevInfo;
 
     const TOFINO_SUBSYSTEM_VID: i32 = 0x1d1c;
@@ -63,20 +63,20 @@ mod plat {
     // Given a node name from the devinfo snapshot, determine whether it
     // represents one of the tofino models we support.
     fn is_tofino_node_name(name: &str) -> bool {
-        if let Some(pci) = name.strip_prefix("pci") {
-            if let Some((vid, id)) = pci.split_once(',') {
-                let vid = match i32::from_str_radix(vid, 16) {
-                    Ok(v) => v,
-                    Err(_) => return false,
-                };
-                let id = match i32::from_str_radix(id, 16) {
-                    Ok(i) => i,
-                    Err(_) => return false,
-                };
+        if let Some(pci) = name.strip_prefix("pci")
+            && let Some((vid, id)) = pci.split_once(',')
+        {
+            let vid = match i32::from_str_radix(vid, 16) {
+                Ok(v) => v,
+                Err(_) => return false,
+            };
+            let id = match i32::from_str_radix(id, 16) {
+                Ok(i) => i,
+                Err(_) => return false,
+            };
 
-                return vid == TOFINO_SUBSYSTEM_VID
-                    && TOFINO_SUBSYSTEM_ID.contains(&id);
-            }
+            return vid == TOFINO_SUBSYSTEM_VID
+                && TOFINO_SUBSYSTEM_ID.contains(&id);
         }
 
         false
@@ -148,9 +148,9 @@ mod plat {
 
 #[cfg(not(target_os = "illumos"))]
 mod plat {
-    use anyhow::bail;
     use anyhow::Error;
     use anyhow::Result;
+    use anyhow::bail;
 
     pub fn get_tofino_nodes() -> Result<Vec<crate::TofinoNode>> {
         bail!("tofino asic not supported on this platform")

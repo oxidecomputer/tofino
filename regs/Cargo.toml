@@ -1,0 +1,14 @@
+[package]
+name = "regs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+bitset = { git = "https://github.com/oxidecomputer/bitset", branch = "main"}
+rust_rpi = { git = "https://github.com/oxidecomputer/rsf" }
+
+[build-dependencies]
+cc.workspace = true
+rsf.workspace = true
+
