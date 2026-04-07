@@ -1,12 +1,11 @@
 use std::{env, fs, path::Path};
 
-use rsf::rust_codegen::{AddrType, ValueType};
+use rsf::rust_codegen::AddrType;
 
 fn main() {
     let code = rsf::rust_codegen::codegen(
         "../rsf/tf2.rsf".into(),
         AddrType::U32,
-        ValueType::U32,
     )
     .unwrap();
 
