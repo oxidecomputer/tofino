@@ -6,10 +6,10 @@
 
 /// This provides a small number of utility routines for accessing the
 /// ASIC's memory mapped PCI space.
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::ffi::{CStr, CString};
 
-extern "C" {
+unsafe extern "C" {
     pub fn pci_map(
         path: *const ::std::os::raw::c_char,
         size: usize,

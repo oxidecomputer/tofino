@@ -4,9 +4,9 @@
 
 // Copyright 2023 Oxide Computer Company
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
-use crate::{read_register, Tofino};
+use crate::{Tofino, read_register};
 use tofino::common::{get_bit, get_bits};
 
 // Each field contains one bit of state for each of 4 channels

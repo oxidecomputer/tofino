@@ -4,9 +4,13 @@
 
 // Copyright 2023 Oxide Computer Company
 
-use anyhow::{anyhow, bail, Context, Result};
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs)]
+
+use anyhow::{Context, Result, anyhow, bail};
 use chrono::Utc;
 use clap::{Parser, Subcommand};
+use rust_rpi::Platform;
 
 mod dr;
 mod fuse;
@@ -15,7 +19,7 @@ mod mac;
 const REGISTER_SIZE: usize = 72 * 1024 * 1024;
 
 mod tofino_regs {
-    use anyhow::{anyhow, Result};
+    use anyhow::{Result, anyhow};
 
     pub struct Node {
         pub size: u32,
@@ -59,9 +63,6 @@ pub enum TftoolCommand {
 /// Dump info about descriptor rings.
 #[derive(Debug, Subcommand)]
 pub enum DrCommands {
-    /// List the descriptor rings and their offsets.
-    List,
-
     /// Show the register values for a single descriptor ring.
     Show {
         /// The descriptor ring.
@@ -147,6 +148,24 @@ impl Tofino {
     // Get all the children of the given node.
     fn get_children(&self, node: &tofino_regs::Node) -> Result<Vec<String>> {
         Ok(tofino_regs::get_children(node))
+    }
+}
+
+impl Platform<u32, u32> for Tofino {
+    type Error = anyhow::Error;
+
+    fn read<T: Default + From<u32>>(&self, addr: u32) -> anyhow::Result<T> {
+        let result = self.pci.read4(addr)?;
+        Ok(result.into())
+    }
+
+    fn write<T: Default + Into<u32>>(
+        &self,
+        addr: u32,
+        value: T,
+    ) -> anyhow::Result<()> {
+        self.pci.write4(addr, value.into())?;
+        Ok(())
     }
 }
 
@@ -286,8 +305,7 @@ fn parse_val(v: &str) -> Result<u32> {
         u32::from_str_radix(x, 16)
             .map_err(|e| anyhow!("invalid hex word: {:?}", e))
     } else {
-        v.parse::<u32>()
-            .map_err(|e| anyhow!("invalid value: {:?}", e))
+        v.parse::<u32>().map_err(|e| anyhow!("invalid value: {:?}", e))
     }
 }
 
