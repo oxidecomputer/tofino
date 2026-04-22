@@ -17,7 +17,7 @@ illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", br
 paste = "1.0"
 quote = "1.0.40"
 regex = "1.12"
-rsf = { git = "https://github.com/oxidecomputer/rsf" }
-rust_rpi = { git = "https://github.com/oxidecomputer/rsf" }
+rsf = { git = "https://github.com/oxidecomputer/rsf", branch = "associated_types" }
+rust_rpi = { git = "https://github.com/oxidecomputer/rsf", branch = "associated_types" }
 tofino = { path = "tofino" }
 regs = { path = "regs" }

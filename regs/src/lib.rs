@@ -8,7 +8,6 @@
 
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
-#![feature(try_trait_v2)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]

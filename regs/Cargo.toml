@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow.workspace = true
 bitset = { git = "https://github.com/oxidecomputer/bitset", branch = "main"}
-rust_rpi = { git = "https://github.com/oxidecomputer/rsf" }
+rust_rpi.workspace = true
 
 [build-dependencies]
 cc.workspace = true
