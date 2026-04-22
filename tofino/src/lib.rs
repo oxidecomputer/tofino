@@ -4,13 +4,14 @@
 
 // Copyright 2023 Oxide Computer Company
 
-use anyhow::{Error, Result};
+use anyhow::{Error, Result, anyhow};
+use std::os::fd::AsRawFd;
 
 pub mod common;
 pub mod fuse;
 pub mod pci;
 
-pub const REGISTER_SIZE: usize = 72 * 1024 * 1024;
+pub const REGISTER_SIZE: usize = 128 * 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TofinoNode {
@@ -19,6 +20,14 @@ pub struct TofinoNode {
     pub instance: Option<i32>,
     pub available: bool,
     pub devfs_path: String,
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct DriverVersion {
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
 }
 
 impl TofinoNode {
@@ -35,6 +44,24 @@ impl TofinoNode {
     /// Return true iff there is a tofino asic visible in the PCI hierarchy
     pub fn has_asic(&self) -> bool {
         self.instance.is_some()
+    }
+
+    pub fn driver_version(&self) -> Result<DriverVersion> {
+        const VERSION_IOCTL: u32 = 0x1d1c1002;
+        let mut version = DriverVersion { major: 0, minor: 0, patch: 0 };
+        if self.driver.is_none() {
+            return Err(anyhow!("no driver found"));
+        }
+
+        let path = plat::device_path(self)?;
+        let f = std::fs::OpenOptions::new().read(true).open(path)?;
+        if unsafe {
+            libc::ioctl(f.as_raw_fd(), VERSION_IOCTL as _, &mut version)
+        } == -1
+        {
+            return Err(anyhow!("{:?}", std::io::Error::last_os_error()));
+        }
+        Ok(version)
     }
 
     /// Open the tofino device, map the register space, and return a handle

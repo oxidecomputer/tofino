@@ -28,31 +28,10 @@ pci_err_msg() {
 	}
 }
 
-static int
-pci_open(const char *path)
-{
-	int fd;
-
-	bzero(err_msg, MAX_ERR_LEN + 1);
-	fd = open(path, O_RDWR | O_EXCL);
-	if (fd < 0) {
-		snprintf(err_msg, MAX_ERR_LEN,
-		    "failed to open device: %s", strerror(errno));
-		return -1;
-	}
-	return fd;
-}
-
 void *
-pci_map(const char *path, size_t len)
+pci_map(int fd, size_t len)
 {
-	int fd;
-
 	bzero(err_msg, MAX_ERR_LEN + 1);
-	fd = pci_open(path);
-	if (fd < 0)
-		return NULL;
-
 	caddr_t base = mmap(NULL, len, PROT_READ | PROT_WRITE,
 	    MAP_SHARED, fd, 0);
 	if (base == MAP_FAILED) {
@@ -64,15 +43,8 @@ pci_map(const char *path, size_t len)
 	return base;
 }
 
-int
-pci_check_presence(const char *path)
+void
+pci_unmap(void *base, size_t len)
 {
-	bzero(err_msg, MAX_ERR_LEN + 1);
-	int fd = pci_open(path);
-	if (fd < 0) {
-		return -1;
-	} else {
-		close(fd);
-		return 0;
-	}
+	munmap(base, len);
 }

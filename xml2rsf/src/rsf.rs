@@ -27,15 +27,11 @@ struct Regexes {
 static REGEXES: OnceLock<Regexes> = OnceLock::new();
 
 fn init_regexes() {
-    std::thread::spawn(|| {
-        let _ = REGEXES.get_or_init(|| Regexes {
-            normalize_re: regex::Regex::new(r"\[[\d -]+\]").unwrap(),
-            single_re: Regex::new(r"\.*\[\s*(\d+)\s*\]").unwrap(),
-            range_re: Regex::new(r"\.*\[(\d+)\s*-\s*(\d+)\]").unwrap(),
-        });
-    })
-    .join()
-    .unwrap()
+    let _ = REGEXES.get_or_init(|| Regexes {
+        normalize_re: regex::Regex::new(r"\[[\d+ -]+\]").unwrap(),
+        single_re: Regex::new(r"\.*\[\s*(\d+)\s*\]").unwrap(),
+        range_re: Regex::new(r"\.*\[(\d+)\s*-\s*(\d+)\]").unwrap(),
+    });
 }
 
 struct Indexes {
@@ -47,6 +43,7 @@ struct Indexes {
 #[derive(Debug, Clone)]
 struct Block<'a> {
     full_name: String,
+    ref_name: String,
     name: String,
     low_offset: u32,
     high_offset: u32,
@@ -69,12 +66,14 @@ struct RegisterInstance<'a> {
 impl<'a> Block<'a> {
     pub fn new(
         full_name: String,
+        ref_name: String,
         name: String,
         low_offset: u32,
         high_offset: u32,
     ) -> Self {
         Block {
             full_name,
+            ref_name,
             name,
             low_offset,
             high_offset,
@@ -93,7 +92,13 @@ fn build_block_tree<'a>(map: &'a RegMap) -> Result<Block<'a>> {
         .map(|r| (r.ref_name.clone(), r))
         .collect::<BTreeMap<String, &Register>>();
 
-    let mut root = Block::new("main".to_string(), "main".to_string(), 0, 0);
+    let mut root = Block::new(
+        "main".to_string(),
+        "main".to_string(),
+        "main".to_string(),
+        0,
+        0,
+    );
     for a in &map.address_maps {
         for e in &a.entries {
             let Some(name) = &e.name else {
@@ -127,8 +132,10 @@ fn build_block_tree<'a>(map: &'a RegMap) -> Result<Block<'a>> {
                     break;
                 } else {
                     full_name = format!("{full_name}.{p}");
+                    let ref_name = e.ref_name.as_ref().unwrap().clone();
                     b = b.blocks.entry(p.to_string()).or_insert(Block::new(
                         full_name.clone(),
+                        ref_name,
                         p.to_string(),
                         e.low,
                         e.high,
@@ -218,9 +225,9 @@ fn name_normalize(name: &str) -> String {
 //     jbay_reg.device_select.lfltr[2].hash[1].hash_array[0 - 15]
 //     jbay_reg.device_select.lfltr[2].hash[2].hash_array[0 - 15]
 //     jbay_reg.device_select.lfltr[2].hash[3].hash_array[0 - 15]
-fn build_arrays(state: &mut ArrayBuilderState, tree: &mut Block) {
+fn build_arrays(rm: &RegMap, state: &mut ArrayBuilderState, tree: &mut Block) {
     for b in tree.blocks.values_mut() {
-        build_arrays(state, b);
+        build_arrays(rm, state, b);
     }
     state.reset();
     for b in tree.blocks.values_mut() {
@@ -228,10 +235,10 @@ fn build_arrays(state: &mut ArrayBuilderState, tree: &mut Block) {
     }
     for (name, array) in &mut state.arrays {
         let mut block = tree.blocks.get(&array.elements[0]).unwrap().clone();
+        let asize = rm.arrays.get(&block.ref_name).unwrap();
         block.name = name.clone();
-        block.count = (array.high_idx + 1) - array.low_idx;
-        block.spacing =
-            ((array.high_offset + 1) - array.low_offset) / block.count;
+        block.count = asize.size;
+        block.spacing = asize.spacing;
         block.low_offset = array.low_offset;
         block.high_offset = array.high_offset;
         while let Some(e) = array.elements.pop() {
@@ -247,9 +254,10 @@ fn build_arrays(state: &mut ArrayBuilderState, tree: &mut Block) {
     }
     for (name, array) in &mut state.arrays {
         let mut reg = tree.regs.get_mut(&array.elements[0]).unwrap().clone();
+        let asize = rm.arrays.get(&reg.reference.ref_name).unwrap();
         reg.instance_name = name.clone();
-        reg.count = (array.high_idx + 1) - array.low_idx;
-        reg.spacing = ((array.high_offset + 1) - array.low_offset) / reg.count;
+        reg.count = asize.size;
+        reg.spacing = asize.spacing;
         reg.low_offset = array.low_offset;
         reg.high_offset = array.high_offset;
         while let Some(e) = array.elements.pop() {
@@ -482,15 +490,13 @@ pub fn convert(map: RegMap) -> Result<ast::Ast> {
     let registers =
         indexes.map.registers.iter().map(|r| r.ref_name.clone()).collect();
     let mut block_tree = build_block_tree(&indexes.map)?;
-
     let mut ab = ArrayBuilderState::new();
-    build_arrays(&mut ab, &mut block_tree);
+    build_arrays(&indexes.map, &mut ab, &mut block_tree);
 
     let mut blocks = BTreeSet::<String>::new();
     all_block_names(&block_tree, &mut blocks);
     indexes.registers = uniquify(registers);
     indexes.blocks = uniquify(blocks.into_iter().collect());
-    println!("{:#?}", indexes.blocks);
     {
         // The registers and blocks all live in a single flat namespace,
         // unless we break it into multiple files.  Make sure we have no

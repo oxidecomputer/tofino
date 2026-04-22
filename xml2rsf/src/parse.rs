@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufReader, prelude::*};
+use std::sync::OnceLock;
 
 use anyhow::Result;
 use anyhow::anyhow;
@@ -7,9 +9,32 @@ use anyhow::bail;
 use convert_case::{Case, Casing};
 use regex::Regex;
 
+struct Regexes {
+    pub offset_re: regex::Regex,
+    pub array_re: regex::Regex,
+    pub bounds_re: regex::Regex,
+    pub csr_re: regex::Regex,
+}
+
+static REGEXES: OnceLock<Regexes> = OnceLock::new();
+
 pub struct RegMap {
     pub address_maps: Vec<AddressMap>,
     pub registers: Vec<Register>,
+    pub arrays: BTreeMap<String, ArrayInfo>,
+}
+
+fn init_regexes() {
+    let _ = REGEXES.get_or_init(|| Regexes {
+        offset_re: regex::Regex::new(
+            r"\s*(0x[[:xdigit:]]+) - 0x([[:xdigit:]]+), \+0x([[:xdigit:]]+)\s*",
+        )
+        .unwrap(),
+        array_re: Regex::new(r"(\d+ - \d+)").unwrap(),
+        bounds_re: Regex::new(r"(\d+) - (\d+)").unwrap(),
+        csr_re: Regex::new(r"\s*(<csr:([^>]*)>)?([^<]*)(</csr:([^>]*)>)?\s*")
+            .unwrap(),
+    });
 }
 
 #[derive(Debug)]
@@ -58,7 +83,7 @@ pub struct AddressMap {
 impl TryFrom<&RawNode> for AddressMap {
     type Error = anyhow::Error;
     fn try_from(node: &RawNode) -> std::result::Result<Self, Self::Error> {
-        match node {
+        match node.find_descendant_container("addressMap").unwrap() {
             RawNode::Container { children, .. } => {
                 let all = children.len();
                 let entries = children
@@ -105,6 +130,12 @@ fn access_parse(s: &str) -> Result<AccessMode> {
         "r/w1c" => Ok(AccessMode::ReadWrite1Clear),
         x => bail!("unrecognized access type: {}", x),
     }
+}
+
+#[derive(Debug)]
+pub struct ArrayInfo {
+    pub size: u32,
+    pub spacing: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -254,7 +285,6 @@ enum LineType {
 struct Parser<R: std::io::Read> {
     line_no: u32,
     reader: BufReader<R>,
-    re: Regex,
 }
 
 impl<R> Parser<R>
@@ -262,16 +292,11 @@ where
     R: std::io::Read,
 {
     pub fn new(reader: BufReader<R>) -> Self {
-        Parser {
-            line_no: 0,
-            reader,
-            re: Regex::new(r"\s*(<csr:([^>]*)>)?([^<]*)(</csr:([^>]*)>)?\s*")
-                .unwrap(),
-        }
+        Parser { line_no: 0, reader }
     }
 
     fn classify_line(&self, line: &str) -> Result<LineType> {
-        let c = self.re.captures(line).unwrap();
+        let c = REGEXES.get().unwrap().csr_re.captures(line).unwrap();
         let tag1 = c.get(2).map(|m| m.as_str());
         let body = c.get(3).unwrap().as_str();
         let tag2 = c.get(5).map(|m| m.as_str());
@@ -365,6 +390,29 @@ where
     }
 }
 
+// Each array has two bits of informtion:
+//   The array dimensions:
+//      <csr:arrayDimensions>[0 - 3]</csr:arrayDimensions>
+//      <csr:arrayDimensions>[0 - 63][0 - 63]</csr:arrayDimensions>
+//   The offset - from which we extract the spacing between elements:
+//      <csr:offset>0x0 - 0xC, +0x4</csr:offset>
+fn get_array_info(n: &RawNode) -> Option<ArrayInfo> {
+    let Ok(dim) = n.get_child_value("arrayDimensions") else {
+        return None;
+    };
+    let mut size = 1;
+    for d in REGEXES.get().unwrap().array_re.find_iter(&dim) {
+        let b = REGEXES.get().unwrap().bounds_re.captures(d.as_str()).unwrap();
+        let upper = b.get(2).unwrap().as_str().parse::<u32>().unwrap();
+        size *= upper + 1;
+    }
+
+    let offset = n.get_child_value("offset").unwrap();
+    let c = REGEXES.get().unwrap().offset_re.captures(&offset).unwrap();
+    let spacing = u32::from_str_radix(c.get(3).unwrap().as_str(), 16).unwrap();
+    Some(ArrayInfo { size, spacing })
+}
+
 fn convert(raw: RawNode) -> Result<RegMap> {
     let definitions = match raw.find_descendant_container("definitions") {
         Some(RawNode::Container { children, .. }) => children,
@@ -373,14 +421,26 @@ fn convert(raw: RawNode) -> Result<RegMap> {
 
     let mut address_maps = Vec::new();
     let mut registers = Vec::new();
+    let mut arrays = BTreeMap::new();
     for d in definitions.iter() {
+        if let Some(a) = get_array_info(d) {
+            let name = d
+                .get_child_value("referenceName")
+                .unwrap()
+                .as_str()
+                .to_string();
+            arrays.insert(name, a);
+        }
         match d.get_child_value("referenceType").unwrap().as_str() {
             "addressmap" => {
                 // Some sections tagged as "addressMap" don't actually
                 // contain any map entries.
-                if let Some(root) = d.find_descendant_container("addressMap") {
-                    address_maps.push(AddressMap::try_from(root).map_err(|e| {
-                    anyhow!( "failed to convert {root:#?} to an addressmap: {e:?}")})?)
+                if d.find_descendant_container("addressMap").is_some() {
+                    address_maps.push(AddressMap::try_from(d).map_err(|e| {
+                        anyhow!(
+                            "failed to convert {d:#?} to an addressmap: {e:?}"
+                        )
+                    })?)
                 }
             }
             "register" => {
@@ -397,10 +457,11 @@ fn convert(raw: RawNode) -> Result<RegMap> {
         }
     }
 
-    Ok(RegMap { address_maps, registers })
+    Ok(RegMap { address_maps, registers, arrays })
 }
 
 pub fn parse_xml(xml: &String) -> Result<RegMap> {
+    init_regexes();
     let file = File::open(xml)?;
     let reader = BufReader::new(file);
     let mut parser = Parser::new(reader);
