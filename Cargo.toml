@@ -14,10 +14,11 @@ chrono = "0.4"
 clap = { version = "4.5.4", features = ["derive"] }
 convert_case = "0.11"
 illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", branch = "main" }
+nix = { version = "0.31", features = ["poll"] }
 paste = "1.0"
 quote = "1.0.40"
 regex = "1.12"
+regs = { path = "regs" }
 rsf = { git = "https://github.com/oxidecomputer/rsf", branch = "associated_types" }
 rust_rpi = { git = "https://github.com/oxidecomputer/rsf", branch = "associated_types" }
 tofino = { path = "tofino" }
-regs = { path = "regs" }

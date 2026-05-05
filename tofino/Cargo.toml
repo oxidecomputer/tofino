@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+nix.workspace = true
 
 [target.'cfg(target_os = "illumos")'.dependencies]
 illumos-devinfo.workspace = true

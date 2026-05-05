@@ -11,7 +11,8 @@
 
 #include <sys/types.h>
 
-extern void *pci_map(const char *path, size_t size);
+extern void *pci_map(int fd, size_t size);
+extern void pci_unmap(void *base, size_t size);
 extern const char *pci_err_msg() ;
 
 #endif
