@@ -86,7 +86,7 @@ impl Pci {
         match self.dev_file.read(&mut buffer).map_err(|e| {
             anyhow!(format!("failed to read shadow bits: {e:?}"))
         })? {
-            r if r == 8 => Ok(vec![
+            8 => Ok(vec![
                 u32::from_ne_bytes(buffer[0..4].try_into().unwrap()),
                 u32::from_ne_bytes(buffer[4..8].try_into().unwrap()),
             ]),
