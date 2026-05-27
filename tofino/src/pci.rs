@@ -81,15 +81,12 @@ impl Pci {
 
     /// Fetches the set of interrupt counts, indicating which interrupts
     /// have fired since the last time this process issued this read.
-    pub fn read_interrupt_counts(&mut self) -> Result<Vec<u32>> {
+    pub fn read_interrupt_count(&mut self) -> Result<u32> {
         let mut buffer = [0u8; 8];
         match self.dev_file.read(&mut buffer).map_err(|e| {
             anyhow!(format!("failed to read shadow bits: {e:?}"))
         })? {
-            8 => Ok(vec![
-                u32::from_ne_bytes(buffer[0..4].try_into().unwrap()),
-                u32::from_ne_bytes(buffer[4..8].try_into().unwrap()),
-            ]),
+            8 => Ok(u32::from_ne_bytes(buffer[0..4].try_into().unwrap())),
             r => Err(anyhow!(format!("found {r} bytes of interrupt data"))),
         }
     }
