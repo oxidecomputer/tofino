@@ -20,6 +20,6 @@ paste = "1.0"
 quote = "1.0.40"
 regex = "1.12"
 regs = { path = "regs" }
-rsf = { git = "https://github.com/oxidecomputer/rsf", branch = "associated_types" }
-rust_rpi = { git = "https://github.com/oxidecomputer/rsf", branch = "associated_types" }
+rsf = { git = "https://github.com/oxidecomputer/rsf" }
+rust_rpi = { git = "https://github.com/oxidecomputer/rsf" }
 tofino = { path = "tofino" }

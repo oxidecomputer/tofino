@@ -677,7 +677,7 @@ dependencies = [
 [[package]]
 name = "rsf"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/rsf?branch=associated_types#f99d66f091f3e20bdb93f2a55dcce32e361c3a33"
+source = "git+https://github.com/oxidecomputer/rsf#9f3e0d9af3129baa4f193638c18f756430a15230"
 dependencies = [
  "annotate-snippets",
  "anyhow",
@@ -704,7 +704,7 @@ dependencies = [
 [[package]]
 name = "rust_rpi"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/rsf?branch=associated_types#f99d66f091f3e20bdb93f2a55dcce32e361c3a33"
+source = "git+https://github.com/oxidecomputer/rsf#9f3e0d9af3129baa4f193638c18f756430a15230"
 
 [[package]]
 name = "rustc-hash"
