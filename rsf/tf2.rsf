@@ -2185,9 +2185,9 @@ block TmCaaTop {
     ///jbay_reg.device_select.tm_top.tm_caa_top.blocks_freecnt
     blocks_freecnt: TmCaaTop_BlocksFreecnt @ 0x278,
     ///epipe
-    epipe: TmCaaTop_Epipe[0x10; 0xf] @ 0x1000,
+    epipe: TmCaaTop_Epipe[0x10; 0x18] @ 0x1000,
     ///block
-    block: TmCaaTop_Block[0xc0; 0x0] @ 0x2000,
+    block: TmCaaTop_Block[0xc0; 0xc] @ 0x2000,
     ///jbay_reg.device_select.tm_top.tm_caa_top.caa_bank_ctr
     caa_bank_ctr: CaaBankCtr[0x180; 0x4] @ 0x3000,
     ///jbay_reg.device_select.tm_top.tm_caa_top.lmem_indir_access_addr
@@ -3305,7 +3305,7 @@ block PscCommon {
     ///epipe
     epipe: PscCommon_Epipe[0x4; 0x18] @ 0x800,
     ///block
-    block: PscCommon_Block[0x60; 0x1] @ 0x1000,
+    block: PscCommon_Block[0x60; 0xc] @ 0x1000,
     ///jbay_reg.device_select.tm_top.tm_psc_top.psc_common.psc_bank_ctrl_r
     psc_bank_ctrl_r: PscBankCtrlR[0x180; 0x4] @ 0x1800,
     ///jbay_reg.device_select.tm_top.tm_psc_top.psc_common.lmem_indir_access_addr
@@ -5367,7 +5367,7 @@ block GpioIotileTr {
 ///main.pipes[0]
 block Pipes {
     ///mau
-    mau: Mau[0x14; 0x40000] @ 0x0,
+    mau: Mau[0x14; 0x80000] @ 0x0,
     ///pardereg
     pardereg: Pardereg @ 0xc00000,
 }
@@ -5453,23 +5453,23 @@ block Dp {
 ///main.pipes[0].mau[0].dp.imem
 block Imem {
     ///jbay_reg.pipes.mau.dp.imem.imem_mocha_subword16
-    imem_mocha_subword16: ImemMochaSubword16[0x2; 0x800] @ 0x0,
+    imem_mocha_subword16: ImemMochaSubword16[0x400; 0x4] @ 0x0,
     ///jbay_reg.pipes.mau.dp.imem.imem_dark_subword16
-    imem_dark_subword16: ImemDarkSubword16[0x2; 0x800] @ 0x1000,
+    imem_dark_subword16: ImemDarkSubword16[0x400; 0x4] @ 0x1000,
     ///jbay_reg.pipes.mau.dp.imem.imem_mocha_subword32
-    imem_mocha_subword32: ImemMochaSubword32[0x2; 0x400] @ 0x2000,
+    imem_mocha_subword32: ImemMochaSubword32[0x200; 0x4] @ 0x2000,
     ///jbay_reg.pipes.mau.dp.imem.imem_mocha_subword8
-    imem_mocha_subword8: ImemMochaSubword8[0x2; 0x400] @ 0x2800,
+    imem_mocha_subword8: ImemMochaSubword8[0x200; 0x4] @ 0x2800,
     ///jbay_reg.pipes.mau.dp.imem.imem_dark_subword32
-    imem_dark_subword32: ImemDarkSubword32[0x2; 0x400] @ 0x3000,
+    imem_dark_subword32: ImemDarkSubword32[0x200; 0x4] @ 0x3000,
     ///jbay_reg.pipes.mau.dp.imem.imem_dark_subword8
-    imem_dark_subword8: ImemDarkSubword8[0x2; 0x400] @ 0x3800,
+    imem_dark_subword8: ImemDarkSubword8[0x200; 0x4] @ 0x3800,
     ///jbay_reg.pipes.mau.dp.imem.imem_subword16
-    imem_subword16: ImemSubword16[0x2; 0x2000] @ 0x8000,
+    imem_subword16: ImemSubword16[0x1000; 0x4] @ 0x8000,
     ///jbay_reg.pipes.mau.dp.imem.imem_subword32
-    imem_subword32: ImemSubword32[0x2; 0x1000] @ 0xc000,
+    imem_subword32: ImemSubword32[0x800; 0x4] @ 0xc000,
     ///jbay_reg.pipes.mau.dp.imem.imem_subword8
-    imem_subword8: ImemSubword8[0x2; 0x1000] @ 0xe000,
+    imem_subword8: ImemSubword8[0x800; 0x4] @ 0xe000,
 }
 
 ///main.pipes[0].mau[0].dp.snapshot_ctl
@@ -5501,25 +5501,25 @@ block SnapshotDp {
 ///main.pipes[0].mau[0].dp.snapshot_dp.snapshot_capture[0]
 block SnapshotCapture {
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_capture.mau_snapshot_capture_subword32b_lo
-    mau_snapshot_capture_subword32b_lo: MauSnapshotCaptureSubword32BLo[0x14; 0x8] @ 0x0,
+    mau_snapshot_capture_subword32b_lo: MauSnapshotCaptureSubword32BLo[0x28; 0x4] @ 0x0,
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_capture.mau_snapshot_capture_subword32b_hi
-    mau_snapshot_capture_subword32b_hi: MauSnapshotCaptureSubword32BHi[0x14; 0x8] @ 0x100,
+    mau_snapshot_capture_subword32b_hi: MauSnapshotCaptureSubword32BHi[0x28; 0x4] @ 0x100,
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_capture.mau_snapshot_capture_subword8b
-    mau_snapshot_capture_subword8b: MauSnapshotCaptureSubword8B[0x14; 0x8] @ 0x400,
+    mau_snapshot_capture_subword8b: MauSnapshotCaptureSubword8B[0x28; 0x4] @ 0x400,
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_capture.mau_snapshot_capture_subword16b
-    mau_snapshot_capture_subword16b: MauSnapshotCaptureSubword16B[0x14; 0x10] @ 0x600,
+    mau_snapshot_capture_subword16b: MauSnapshotCaptureSubword16B[0x50; 0x4] @ 0x600,
 }
 
 ///main.pipes[0].mau[0].dp.snapshot_dp.snapshot_match
 block SnapshotMatch {
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_match.mau_snapshot_match_subword32b_lo
-    mau_snapshot_match_subword32b_lo: MauSnapshotMatchSubword32BLo[0x40; 0x8] @ 0x0,
+    mau_snapshot_match_subword32b_lo: MauSnapshotMatchSubword32BLo[0x80; 0x4] @ 0x0,
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_match.mau_snapshot_match_subword32b_hi
-    mau_snapshot_match_subword32b_hi: MauSnapshotMatchSubword32BHi[0x40; 0x8] @ 0x200,
+    mau_snapshot_match_subword32b_hi: MauSnapshotMatchSubword32BHi[0x80; 0x4] @ 0x200,
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_match.mau_snapshot_match_subword8b
-    mau_snapshot_match_subword8b: MauSnapshotMatchSubword8B[0x40; 0x8] @ 0x800,
+    mau_snapshot_match_subword8b: MauSnapshotMatchSubword8B[0x80; 0x4] @ 0x800,
     ///jbay_reg.pipes.mau.dp.snapshot_dp.snapshot_match.mau_snapshot_match_subword16b
-    mau_snapshot_match_subword16b: MauSnapshotMatchSubword16B[0x60; 0x8] @ 0xc00,
+    mau_snapshot_match_subword16b: MauSnapshotMatchSubword16B[0xc0; 0x4] @ 0xc00,
 }
 
 ///main.pipes[0].mau[0].dp.xbar_hash
@@ -5533,7 +5533,7 @@ block XbarHash_Hash {
     ///jbay_reg.pipes.mau.dp.xbar_hash.hash.hash_seed
     hash_seed: Hash_HashSeed[0x34; 0x4] @ 0x100,
     ///jbay_reg.pipes.mau.dp.xbar_hash.hash.galois_field_matrix
-    galois_field_matrix: GaloisFieldMatrix[0x40; 0x100] @ 0x4000,
+    galois_field_matrix: GaloisFieldMatrix[0x1000; 0x4] @ 0x4000,
 }
 
 ///main.pipes[0].mau[0].rams
@@ -5555,7 +5555,7 @@ block Array {
 ///main.pipes[0].mau[0].rams.array.row[0]
 block Array_Row {
     ///ram
-    ram: Ram[0xc; 0x6a] @ 0x0,
+    ram: Ram[0xc; 0x80] @ 0x0,
     ///stash
     stash: Stash @ 0xd00,
     ///jbay_reg.pipes.mau.rams.array.row.intr_status_mau_unit_ram_row
@@ -5589,9 +5589,9 @@ block Stash {
     ///jbay_reg.pipes.mau.rams.array.row.stash.stash_match_input_data_ctl
     stash_match_input_data_ctl: StashMatchInputDataCtl[0x2; 0x4] @ 0x30,
     ///jbay_reg.pipes.mau.rams.array.row.stash.stash_data
-    stash_data: StashData[0x4; 0x10] @ 0x80,
+    stash_data: StashData[0x10; 0x4] @ 0x80,
     ///jbay_reg.pipes.mau.rams.array.row.stash.stash_match_mask
-    stash_match_mask: StashMatchMask[0x2; 0x10] @ 0xc0,
+    stash_match_mask: StashMatchMask[0x8; 0x4] @ 0xc0,
     ///jbay_reg.pipes.mau.rams.array.row.stash.stash_hashkey_data
     stash_hashkey_data: StashHashkeyData[0x4; 0x4] @ 0xf0,
 }
@@ -5603,7 +5603,7 @@ block MapAlu {
     ///jbay_reg.pipes.mau.rams.map_alu.intr_mau_decode_memory_core
     intr_mau_decode_memory_core: IntrMauDecodeMemoryCore[0x2; 0x4] @ 0x2120,
     ///jbay_reg.pipes.mau.rams.map_alu.selector_action_adr_fallback
-    selector_action_adr_fallback: SelectorActionAdrFallback[0x8; 0x8] @ 0x24c0,
+    selector_action_adr_fallback: SelectorActionAdrFallback[0x10; 0x4] @ 0x24c0,
     ///stats_wrap
     stats_wrap: StatsWrap[0x4; 0x80] @ 0x2600,
     ///meter_group
@@ -5741,7 +5741,7 @@ block Merge {
     ///jbay_reg.pipes.mau.rams.match.merge.mpr_glob_exec_lut
     mpr_glob_exec_lut: MprGlobExecLut[0x10; 0x4] @ 0x40,
     ///jbay_reg.pipes.mau.rams.match.merge.stash_next_table_lut
-    stash_next_table_lut: StashNextTableLut[0x2; 0x20] @ 0xc0,
+    stash_next_table_lut: StashNextTableLut[0x10; 0x4] @ 0xc0,
     ///jbay_reg.pipes.mau.rams.match.merge.mau_snapshot_physical_tcam_hit_address
     mau_snapshot_physical_tcam_hit_address: MauSnapshotPhysicalTcamHitAddress[0x10; 0x4] @ 0x280,
     ///jbay_reg.pipes.mau.rams.match.merge.mau_snapshot_physical_exact_match_hit_address
@@ -5783,7 +5783,7 @@ block Merge {
     ///jbay_reg.pipes.mau.rams.match.merge.pred_stage_id
     pred_stage_id: PredStageId @ 0x14f0,
     ///jbay_reg.pipes.mau.rams.match.merge.mpr_next_table_lut
-    mpr_next_table_lut: MprNextTableLut[0x3; 0x40] @ 0x2a00,
+    mpr_next_table_lut: MprNextTableLut[0x30; 0x4] @ 0x2a00,
     ///jbay_reg.pipes.mau.rams.match.merge.mpr_glob_exec_thread
     mpr_glob_exec_thread: MprGlobExecThread @ 0x2c28,
     ///jbay_reg.pipes.mau.rams.match.merge.mpr_long_brch_thread
@@ -8023,7 +8023,7 @@ block Pgluereg_PardeIntr {
 ///main.pipes[0].pardereg.pgstnreg.pgrreg
 block Pgrreg {
     ///pgr_app
-    pgr_app: PgrApp[0x10; 0x140] @ 0x0,
+    pgr_app: PgrApp[0x10; 0x200] @ 0x0,
     ///pgr_common
     pgr_common: PgrCommon @ 0x2000,
 }
