@@ -17,7 +17,8 @@ mod fuse;
 mod imem;
 mod mac;
 
-const REGISTER_SIZE: usize = 72 * 1024 * 1024;
+// Map the full 4-pipe register space (pipes end at 0x08000000).
+const REGISTER_SIZE: usize = tofino::REGISTER_SIZE;
 
 mod tofino_regs {
     use anyhow::{Result, anyhow};
