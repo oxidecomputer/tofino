@@ -14,6 +14,7 @@ use rust_rpi::Platform;
 
 mod dr;
 mod fuse;
+mod imem;
 mod mac;
 
 const REGISTER_SIZE: usize = 72 * 1024 * 1024;
@@ -54,10 +55,31 @@ pub enum TftoolCommand {
     Dr(DrCommands),
 
     #[clap(subcommand)]
+    Imem(ImemCommands),
+
+    #[clap(subcommand)]
     Reg(RegCommands),
 
     #[clap(subcommand)]
     Mac(MacCommands),
+}
+
+/// Read MAU instruction memory.
+#[derive(Debug, Subcommand)]
+pub enum ImemCommands {
+    /// Read all 32 imem words of the ALU attached to a PHV container.
+    Read {
+        /// PHV container the ALU writes, e.g. W3, H20, B7, MH6 or DW8.
+        phv: String,
+
+        /// Physical pipe (0-3).
+        #[clap(short, long)]
+        pipe: u32,
+
+        /// MAU stage (0-19).
+        #[clap(short, long)]
+        stage: u32,
+    },
 }
 
 /// Dump info about descriptor rings.
@@ -416,5 +438,6 @@ pub fn exec() -> Result<()> {
         TftoolCommand::Reg(reg_cmd) => reg_command(&mut ctx, reg_cmd),
         TftoolCommand::Mac(mac_cmd) => mac_command(&mut ctx, mac_cmd),
         TftoolCommand::Dr(dr_cmd) => dr::dr_command(&mut ctx, dr_cmd),
+        TftoolCommand::Imem(imem_cmd) => imem::imem_command(&mut ctx, imem_cmd),
     }
 }
