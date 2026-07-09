@@ -16,6 +16,7 @@ mod dr;
 mod fuse;
 mod imem;
 mod mac;
+mod stage;
 
 // Map the full 4-pipe register space (pipes end at 0x08000000).
 const REGISTER_SIZE: usize = tofino::REGISTER_SIZE;
@@ -63,12 +64,70 @@ pub enum TftoolCommand {
 
     #[clap(subcommand)]
     Mac(MacCommands),
+
+    #[clap(subcommand)]
+    Stage(StageCommands),
+}
+
+/// Operate on whole MAU stages.
+#[derive(Debug, Subcommand)]
+pub enum StageCommands {
+    /// Dump raw 32-bit words of a MAU stage's register space, one
+    /// `<addr> <value>` pair per line.
+    ///
+    /// The output is suitable for offline diffing against the values the
+    /// pipeline binary programs (`tof diff <tofino2.bin> <dump>`).
+    ///
+    /// The default window covers the stage's dp section (instruction
+    /// memory, PHV datapath control, match input crossbar and hash:
+    /// bytes 0x00000-0x3ffff). Other sections can be selected with
+    /// --from/--words; note that some rams.match registers (stats and
+    /// idletime FIFOs at 0x60000+) can have read side effects on a
+    /// system carrying traffic, so widen the window deliberately.
+    Dump {
+        /// Physical pipe (0-3).
+        #[clap(short, long)]
+        pipe: u32,
+
+        /// MAU stage (0-19).
+        #[clap(short, long)]
+        stage: u32,
+
+        /// Starting byte offset within the stage (hex with 0x prefix, or
+        /// decimal).
+        #[clap(long, default_value = "0")]
+        from: String,
+
+        /// Number of 32-bit words to read.
+        #[clap(long, default_value = "65536")]
+        words: u32,
+    },
 }
 
 /// Read MAU instruction memory.
 #[derive(Debug, Subcommand)]
 pub enum ImemCommands {
     /// Read all 32 imem words of the ALU attached to a PHV container.
+    ///
+    /// Each MAU stage gives every PHV container a VLIW ALU with 32
+    /// instruction memory words, one per instruction line. A line is shared
+    /// by two action instruction addresses (iaddr = 2*line + color): the
+    /// word's color bit selects which of the two runs it. Line 31 with
+    /// color 1 is the always-run action slot.
+    ///
+    /// Output columns:
+    ///
+    ///   LINE    instruction line (0-31)
+    ///   ADDR    PCIe register address of the imem word
+    ///   RAW     raw 32-bit register value
+    ///   INSTR   instruction bits (RAW with color/parity stripped)
+    ///   C       color bit: word runs when iaddr 2*LINE+C is asserted
+    ///   P       parity bit: INSTR+C+P have even parity
+    ///   DECODE  decoded instruction (deposit-field and set are decoded
+    ///           fully; other ops are shown as raw opcode and sources)
+    ///
+    /// Runs of all-zero (unprogrammed) lines are elided.
+    #[command(verbatim_doc_comment)]
     Read {
         /// PHV container the ALU writes, e.g. W3, H20, B7, MH6 or DW8.
         phv: String,
@@ -440,5 +499,8 @@ pub fn exec() -> Result<()> {
         TftoolCommand::Mac(mac_cmd) => mac_command(&mut ctx, mac_cmd),
         TftoolCommand::Dr(dr_cmd) => dr::dr_command(&mut ctx, dr_cmd),
         TftoolCommand::Imem(imem_cmd) => imem::imem_command(&mut ctx, imem_cmd),
+        TftoolCommand::Stage(stage_cmd) => {
+            stage::stage_command(&mut ctx, stage_cmd)
+        }
     }
 }
