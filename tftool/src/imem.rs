@@ -27,7 +27,7 @@ use rust_rpi::RegisterInstance;
 use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Class {
+pub(crate) enum Class {
     /// 32-bit containers (W)
     Word,
     /// 16-bit containers (H)
@@ -37,7 +37,7 @@ enum Class {
 }
 
 impl Class {
-    fn letter(&self) -> char {
+    pub(crate) fn letter(&self) -> char {
         match self {
             Class::Word => 'W',
             Class::Half => 'H',
@@ -45,7 +45,7 @@ impl Class {
         }
     }
 
-    fn bits(&self) -> u32 {
+    pub(crate) fn bits(&self) -> u32 {
         match self {
             Class::Word => 32,
             Class::Half => 16,
@@ -54,7 +54,7 @@ impl Class {
     }
 
     /// Number of container groups of this class per imem array side.
-    fn groups_per_side(&self) -> u32 {
+    pub(crate) fn groups_per_side(&self) -> u32 {
         match self {
             Class::Half => 3,
             _ => 2,
@@ -71,7 +71,7 @@ impl Class {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Kind {
+pub(crate) enum Kind {
     Normal,
     Mocha,
     Dark,
@@ -79,17 +79,17 @@ enum Kind {
 
 /// The ALU (imem location) attached to one PHV container.
 #[derive(Debug)]
-struct PhvAlu {
-    name: String,
-    class: Class,
-    kind: Kind,
-    side: u32,
-    group: u32,
-    alu: u32,
+pub(crate) struct PhvAlu {
+    pub(crate) name: String,
+    pub(crate) class: Class,
+    pub(crate) kind: Kind,
+    pub(crate) side: u32,
+    pub(crate) group: u32,
+    pub(crate) alu: u32,
 }
 
 impl PhvAlu {
-    fn parse(name: &str) -> Result<Self> {
+    pub(crate) fn parse(name: &str) -> Result<Self> {
         let upper = name.to_uppercase();
         let mut chars = upper.chars();
         let mut c = chars.next().ok_or_else(|| anyhow!("empty phv name"))?;
@@ -141,7 +141,7 @@ impl PhvAlu {
     /// instruction line. The arrays are [side][group][alu][line] with the
     /// alu dimension padded to 16 for normal containers and 4 for
     /// mocha/dark.
-    fn index(&self, line: u32) -> u32 {
+    pub(crate) fn index(&self, line: u32) -> u32 {
         let alu_dim = match self.kind {
             Kind::Normal => 16,
             _ => 4,
@@ -154,7 +154,7 @@ impl PhvAlu {
 
     /// imem word layout: instruction bits [instr_bits-1:0], then a color bit,
     /// then a parity bit.
-    fn instr_bits(&self) -> u32 {
+    pub(crate) fn instr_bits(&self) -> u32 {
         match (self.kind, self.class) {
             (Kind::Normal, Class::Word) => 27,
             (Kind::Normal, Class::Half) => 24,
@@ -162,6 +162,51 @@ impl PhvAlu {
             (Kind::Mocha, _) => 7,
             (Kind::Dark, _) => 6,
         }
+    }
+
+    /// Index of this container in the per-class snapshot capture register
+    /// space, which covers 20 containers per group (12 normal, 4 mocha,
+    /// 4 dark).
+    pub(crate) fn cap_index(&self) -> u32 {
+        let slot = match self.kind {
+            Kind::Normal => self.alu,
+            Kind::Mocha => 12 + self.alu,
+            Kind::Dark => 16 + self.alu,
+        };
+        (self.side * self.class.groups_per_side() + self.group) * 20 + slot
+    }
+
+    /// Encode `deposit-field <container>(0..size-1), const <val> >>rot <rot>`
+    /// as a complete imem register word for the always-run line (color 1,
+    /// correct parity). The value written to the container by the executing
+    /// ALU is `val` masked to the container size and rotated right by `rot`,
+    /// so small constants plus the barrel rotate cover all-zeros, all-ones
+    /// (val -1) and walking-one / walking-zero (val 1 / -2) patterns.
+    pub(crate) fn encode_deposit_const(
+        &self,
+        val: i32,
+        rot: u32,
+    ) -> Result<u32> {
+        if self.kind != Kind::Normal {
+            bail!("only normal containers have a deposit-field ALU");
+        }
+        if !(-4..8).contains(&val) {
+            bail!("constant {val} out of immediate range -4..7");
+        }
+        let size = self.class.bits();
+        if rot >= size {
+            bail!("rotation {rot} out of range for {size}-bit container");
+        }
+        // dest.lo = 0, so the size-specific lo packing contributes no bits
+        // and the rot field needs no lo adjustment
+        let src1 = (val + 24) as u32;
+        let upper = src1 | (1 << 6) | ((size - 1) << 7) | (rot << 12);
+        let instr = (upper << 5) | self.alu; // src2: own slot as background
+        let color = 1u32;
+        let parity = (instr.count_ones() + color) & 1;
+        Ok(instr
+            | (color << self.instr_bits())
+            | (parity << (self.instr_bits() + 1)))
     }
 
     /// Name the container at ALU slot `slot` (0..19) of this ALU's group:
@@ -193,7 +238,7 @@ impl PhvAlu {
     /// Decode one instruction word. Mirrors the encoders in bf-asm
     /// instruction.cpp (DepositField::encode, Set::encode) with
     /// INSTR_SRC2_BITS=5; ops other than deposit-field/set are shown raw.
-    fn decode_instr(&self, instr: u32) -> String {
+    pub(crate) fn decode_instr(&self, instr: u32) -> String {
         if instr == 0 {
             return String::new();
         }
@@ -249,7 +294,12 @@ impl PhvAlu {
                     let src_txt = if src1 & 0x20 == 0 && src1 >= 20 {
                         let mask = u32::MAX >> (32 - size);
                         let val = (src1 as i64 - 24) as u32 & mask;
-                        let eff = val.rotate_right((rot + lo) % size) & mask;
+                        // barrel rotate within the container width (not 32)
+                        let r = (rot + lo) % size;
+                        let eff = match r {
+                            0 => val,
+                            _ => ((val >> r) | (val << (size - r))) & mask,
+                        };
                         format!("{eff}")
                     } else {
                         format!("{} >>rot {rot}", self.decode_src(src1))
@@ -318,7 +368,58 @@ read_imem_word!(imem_dark_subword_32);
 read_imem_word!(imem_dark_subword_16);
 read_imem_word!(imem_dark_subword_8);
 
-fn read_word(
+macro_rules! write_imem_word {
+    ($name:ident) => {
+        paste! {
+        fn [<write_ $name>](
+            ctx: &mut Tofino,
+            pipe: u32,
+            stage: u32,
+            index: u32,
+            value: u32,
+        ) -> Result<()> {
+            let word = regs::Client::default()
+                .pipes(pipe)?
+                .mau(stage)?
+                .dp()
+                .imem()
+                .$name(index)?;
+            word.write_raw(ctx, value)?;
+            Ok(())
+        }
+        }
+    };
+}
+
+write_imem_word!(imem_subword_32);
+write_imem_word!(imem_subword_16);
+write_imem_word!(imem_subword_8);
+
+/// Write one imem word of a normal container's ALU (test injection support;
+/// mocha/dark are not needed and not supported here).
+pub(crate) fn write_word(
+    ctx: &mut Tofino,
+    alu: &PhvAlu,
+    pipe: u32,
+    stage: u32,
+    index: u32,
+    value: u32,
+) -> Result<()> {
+    match (alu.kind, alu.class) {
+        (Kind::Normal, Class::Word) => {
+            write_imem_subword_32(ctx, pipe, stage, index, value)
+        }
+        (Kind::Normal, Class::Half) => {
+            write_imem_subword_16(ctx, pipe, stage, index, value)
+        }
+        (Kind::Normal, Class::Byte) => {
+            write_imem_subword_8(ctx, pipe, stage, index, value)
+        }
+        _ => bail!("imem writes only supported for normal containers"),
+    }
+}
+
+pub(crate) fn read_word(
     ctx: &mut Tofino,
     alu: &PhvAlu,
     pipe: u32,

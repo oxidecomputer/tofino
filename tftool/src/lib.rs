@@ -16,6 +16,7 @@ mod dr;
 mod fuse;
 mod imem;
 mod mac;
+mod phv;
 mod stage;
 
 // Map the full 4-pipe register space (pipes end at 0x08000000).
@@ -66,7 +67,66 @@ pub enum TftoolCommand {
     Mac(MacCommands),
 
     #[clap(subcommand)]
+    Phv(PhvCommands),
+
+    #[clap(subcommand)]
     Stage(StageCommands),
+}
+
+/// Test PHV container datapaths.
+#[derive(Debug, Subcommand)]
+pub enum PhvCommands {
+    /// Write/readback test of a PHV container's datapath through the MAU
+    /// pipeline.
+    ///
+    /// The PHV pipeline has no direct software access, so the test runs
+    /// through the datapath itself: a deposit-field instruction installed
+    /// on the always-run line of the container's ALU at --write-stage
+    /// injects a test pattern into every passing packet, and the MAU
+    /// snapshot machinery captures the container at each downstream stage
+    /// to show where bits survive. Patterns cover all-zeros, all-ones, a
+    /// walking one and a walking zero.
+    ///
+    /// Requirements and caveats:
+    ///
+    ///   - packets must be flowing through the pipe (each pattern waits
+    ///     for a packet to trigger a snapshot capture)
+    ///   - the container is OVERWRITTEN for every ingress packet in the
+    ///     pipe from --write-stage onward while the test runs: traffic
+    ///     that uses it will be corrupted for the duration
+    ///   - if the running P4 program writes the container in a stage
+    ///     inside the capture range, those writes mask the test pattern
+    ///     at later stages
+    ///   - races with concurrent snapshot users (swadm snapshot)
+    ///
+    /// The injected instruction and snapshot state are restored on exit.
+    #[command(verbatim_doc_comment)]
+    Test {
+        /// PHV container to test, e.g. W3, H20 or B7 (normal containers
+        /// only; mocha/dark ALUs cannot source immediate patterns).
+        phv: String,
+
+        /// Physical pipe (0-3).
+        #[clap(short, long)]
+        pipe: u32,
+
+        /// Stage whose ALU injects the pattern; its always-run imem word
+        /// must be free.
+        #[clap(short, long)]
+        write_stage: u32,
+
+        /// Last stage to capture at.
+        #[clap(short, long, default_value = "19")]
+        through: u32,
+
+        /// Per-pattern wait for a packet to trigger, in milliseconds.
+        #[clap(long, default_value = "5000")]
+        timeout_ms: u64,
+
+        /// Only run the all-zeros and all-ones patterns.
+        #[clap(long)]
+        quick: bool,
+    },
 }
 
 /// Operate on whole MAU stages.
@@ -499,6 +559,7 @@ pub fn exec() -> Result<()> {
         TftoolCommand::Mac(mac_cmd) => mac_command(&mut ctx, mac_cmd),
         TftoolCommand::Dr(dr_cmd) => dr::dr_command(&mut ctx, dr_cmd),
         TftoolCommand::Imem(imem_cmd) => imem::imem_command(&mut ctx, imem_cmd),
+        TftoolCommand::Phv(phv_cmd) => phv::phv_command(&mut ctx, phv_cmd),
         TftoolCommand::Stage(stage_cmd) => {
             stage::stage_command(&mut ctx, stage_cmd)
         }
