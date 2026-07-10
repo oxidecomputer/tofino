@@ -23,6 +23,7 @@
 //! a packet to trigger the snapshot).
 
 use anyhow::{Result, bail};
+use colored::Colorize;
 use rust_rpi::RegisterInstance;
 
 use crate::imem::{self, Kind, PhvAlu};
@@ -301,10 +302,12 @@ fn run_test(
         let mut row = format!("{:9} {:>8x}", pattern.name, pattern.expect);
         for (i, &stage) in stages.iter().enumerate() {
             let got = read_capture(ctx, alu, st.pipe, stage)?;
+            // pad before colorizing: ANSI escapes would count against the
+            // format width
             if got == pattern.expect {
-                row.push_str(&format!(" {:>8}", "ok"));
+                row.push_str(&format!(" {}", format!("{:>8}", "ok").green()));
             } else {
-                row.push_str(&format!(" {:>8x}", got));
+                row.push_str(&format!(" {}", format!("{:>8x}", got).red()));
                 stuck0[i] |= pattern.expect & !got;
                 stuck1[i] |= got & !pattern.expect;
             }
@@ -322,14 +325,18 @@ fn run_test(
         if stuck0[i] != 0 || stuck1[i] != 0 {
             any = true;
             println!(
-                "stage {stage}: bits captured 0 when written 1: {:08x}, \
-                 captured 1 when written 0: {:08x}",
-                stuck0[i], stuck1[i]
+                "stage {stage}: bits captured 0 when written 1: {}, \
+                 captured 1 when written 0: {}",
+                format!("{:08x}", stuck0[i]).red(),
+                format!("{:08x}", stuck1[i]).red(),
             );
         }
     }
     if !any {
-        println!("all patterns read back correctly at every stage");
+        println!(
+            "{}",
+            "all patterns read back correctly at every stage".green()
+        );
     } else {
         println!(
             "note: a defect between two capture points shows up at the \
@@ -382,9 +389,13 @@ fn test(
         alu.name
     );
     println!(
-        "WARNING: {} is overwritten for every ingress packet in pipe \
-         {pipe} while this test runs\n",
-        alu.name
+        "{}\n",
+        format!(
+            "WARNING: {} is overwritten for every ingress packet in pipe \
+             {pipe} while this test runs",
+            alu.name
+        )
+        .yellow()
     );
 
     let st =
