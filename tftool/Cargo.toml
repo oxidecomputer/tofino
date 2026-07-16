@@ -7,6 +7,7 @@ edition = "2024"
 anyhow.workspace = true
 chrono.workspace = true
 clap.workspace = true
+colored.workspace = true
 paste.workspace = true
 regs.workspace = true
 rust_rpi.workspace = true

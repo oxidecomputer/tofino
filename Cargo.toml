@@ -12,6 +12,7 @@ anyhow = "1.0"
 cc = "1.0"
 chrono = "0.4"
 clap = { version = "4.5.4", features = ["derive"] }
+colored = "2"
 convert_case = "0.11"
 illumos-devinfo = { git = "https://github.com/oxidecomputer/illumos-devinfo", branch = "main" }
 libc = "0.2.174"
